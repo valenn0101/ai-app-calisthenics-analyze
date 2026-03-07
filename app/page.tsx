@@ -47,7 +47,7 @@ export default function Home() {
 
       video.onloadedmetadata = () => {
         const duration = video.duration;
-        const targetFrames = Math.min(12, Math.max(6, Math.floor(duration * 2)));
+        const targetFrames = Math.min(16, Math.max(8, Math.floor(duration * 2)));
         const interval = duration / targetFrames;
         const extractedFrames: string[] = [];
         let currentFrame = 0;
@@ -188,7 +188,7 @@ export default function Home() {
           <label className="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
             Modelo de IA
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {([
               { value: 'claude' as Provider, label: 'Claude Opus 4.6', color: 'violet' },
               { value: 'gemini' as Provider, label: 'Gemini 3 Flash Preview', color: 'blue' },
@@ -211,13 +211,13 @@ export default function Home() {
         </div>
 
         {/* Upload + Exercise Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Exercise Selector */}
           <div>
             <label className="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
               Ejercicio
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {EXERCISES.map(ex => (
                 <button
                   key={ex.value}
@@ -323,7 +323,7 @@ export default function Home() {
                 <button
                   key={panel}
                   onClick={() => setActivePanel(panel)}
-                  className={`flex-1 py-2.5 text-xs font-mono uppercase tracking-wider transition-all ${
+                  className={`flex-1 py-3 text-xs font-mono uppercase tracking-wider transition-all ${
                     activePanel === panel
                       ? 'text-violet-400 border-b-2 border-violet-500 bg-violet-500/5'
                       : 'text-gray-500 hover:text-gray-300'
@@ -334,11 +334,12 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {activePanel === 'analysis' ? (
                 <AnalysisResult
                   data={analysis}
                   exercise={EXERCISES.find(e => e.value === exercise)?.label || exercise}
+                  frames={frames}
                   onFrameHighlight={handleFrameHighlight}
                   improvement={sessionMeta?.improvement}
                   previousScore={sessionMeta?.previousScore}

@@ -38,8 +38,8 @@ Devuelve SOLAMENTE un JSON válido con esta estructura exacta (sin texto adicion
 Sé específico, técnico y accionable. El shareText debe ser autocontenido para que un agente pueda entender el contexto sin ver el video.`;
 
 function selectFrames(frames: string[]): string[] {
-  if (frames.length <= 8) return frames;
-  return frames.filter((_, i) => i % Math.ceil(frames.length / 8) === 0).slice(0, 8);
+  if (frames.length <= 16) return frames;
+  return frames.filter((_, i) => i % Math.ceil(frames.length / 16) === 0).slice(0, 16);
 }
 
 function parseJson(raw: string) {
