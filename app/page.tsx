@@ -21,6 +21,8 @@ type AppState = 'idle' | 'extracting' | 'analyzing' | 'done' | 'error';
 export default function Home() {
   const [exercise, setExercise] = useState<Exercise>('muscle_up');
   const [provider, setProvider] = useState<Provider>('claude');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
   const [frames, setFrames] = useState<string[]>([]);
   const [selectedFrames, setSelectedFrames] = useState<Set<number>>(new Set());
   const [highlightedFrames, setHighlightedFrames] = useState<Set<number>>(new Set());
@@ -46,6 +48,7 @@ export default function Home() {
       setVideoSrc(url);
 
       video.onloadedmetadata = () => {
+        setVideoDuration(video.duration);
         const duration = video.duration;
         const targetFrames = Math.min(16, Math.max(8, Math.floor(duration * 2)));
         const interval = duration / targetFrames;
@@ -90,6 +93,7 @@ export default function Home() {
     setAppState('extracting');
 
     try {
+      setVideoFile(file);
       const extracted = await extractFrames(file);
       setFrames(extracted);
       setAppState('idle');
@@ -105,11 +109,25 @@ export default function Home() {
     setError('');
 
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frames, exercise, provider }),
-      });
+      let res: Response;
+
+      if (provider === 'gemini' && videoFile) {
+        // Gemini: send video file directly via multipart
+        const formData = new FormData();
+        formData.append('video', videoFile);
+        formData.append('exercise', exercise);
+        formData.append('provider', 'gemini');
+        formData.append('frameCount', frames.length.toString());
+        formData.append('videoDuration', videoDuration.toString());
+        res = await fetch('/api/analyze', { method: 'POST', body: formData });
+      } else {
+        // Claude (or Gemini fallback): send extracted frames as JSON
+        res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ frames, exercise, provider }),
+        });
+      }
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
@@ -191,7 +209,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-2">
             {([
               { value: 'claude' as Provider, label: 'Claude Opus 4.6', color: 'violet' },
-              { value: 'gemini' as Provider, label: 'Gemini 3 Flash Preview', color: 'blue' },
+              { value: 'gemini' as Provider, label: 'Gemini 3 Flash Preview', badge: 'video nativo', color: 'blue' },
             ] as const).map(p => (
               <button
                 key={p.value}
@@ -204,7 +222,8 @@ export default function Home() {
                     : 'border-gray-700 text-gray-400 hover:border-gray-600'
                 }`}
               >
-                {p.label}
+                <div>{p.label}</div>
+                {'badge' in p && <div className="text-[10px] opacity-60 mt-0.5">{p.badge}</div>}
               </button>
             ))}
           </div>
@@ -299,7 +318,9 @@ export default function Home() {
           >
             {appState === 'analyzing' ? (
               <span className="animate-pulse">
-                Analizando con {provider === 'gemini' ? 'Gemini' : 'Claude'}...
+                {provider === 'gemini' && videoFile
+                  ? 'Subiendo y analizando con Gemini...'
+                  : `Analizando con ${provider === 'gemini' ? 'Gemini' : 'Claude'}...`}
               </span>
             ) : (
               'Analizar Técnica'
