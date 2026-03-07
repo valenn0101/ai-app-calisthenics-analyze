@@ -7,6 +7,7 @@ interface AnalysisResultProps {
   data: AnalysisResultType;
   exercise: string;
   frames?: string[];
+  frameLabels?: string[];
   onFrameHighlight: (frameIndex: number) => void;
   improvement?: number;
   previousScore?: number;
@@ -24,31 +25,31 @@ const priorityLabels = {
   low: 'BAJA',
 };
 
-function FrameThumb({ frame, frameIndex, onClick }: { frame: string; frameIndex: number; onClick: () => void }) {
+function FrameThumb({ frame, label, onClick }: { frame: string; label: string; onClick: () => void }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <>
       <button
         onClick={() => { setExpanded(true); onClick(); }}
         className="block rounded overflow-hidden border border-blue-400/40 hover:border-blue-400 active:scale-95 transition-all"
-        title={`Frame ${frameIndex + 1} — toca para ampliar`}
+        title={`${label} — toca para ampliar`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={frame} alt={`Frame ${frameIndex + 1}`} className="object-cover" style={{ width: 96, height: 64 }} />
+        <img src={frame} alt={label} className="object-cover" style={{ width: 96, height: 64 }} />
         <div className="bg-black/70 text-center py-0.5">
-          <span className="text-[10px] font-mono text-blue-300">f{frameIndex + 1}</span>
+          <span className="text-[10px] font-mono text-blue-300">{label}</span>
         </div>
       </button>
       {expanded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setExpanded(false)}>
           <div className="relative w-full max-w-xl" onClick={e => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={frame} alt={`Frame ${frameIndex + 1}`} className="w-full rounded-lg border border-blue-400/40" />
+            <img src={frame} alt={label} className="w-full rounded-lg border border-blue-400/40" />
             <button onClick={() => setExpanded(false)} className="absolute top-2 right-2 text-white bg-black/70 hover:bg-black px-3 py-1.5 rounded text-xs font-mono">
               ✕ cerrar
             </button>
             <div className="absolute bottom-2 left-2 text-xs font-mono text-blue-300 bg-black/70 px-2 py-1 rounded">
-              Frame {frameIndex + 1}
+              {label}
             </div>
           </div>
         </div>
@@ -57,7 +58,7 @@ function FrameThumb({ frame, frameIndex, onClick }: { frame: string; frameIndex:
   );
 }
 
-export default function AnalysisResult({ data, exercise, frames = [], onFrameHighlight, improvement, previousScore }: AnalysisResultProps) {
+export default function AnalysisResult({ data, exercise, frames = [], frameLabels = [], onFrameHighlight, improvement, previousScore }: AnalysisResultProps) {
   const scoreColor =
     data.score >= 8 ? 'text-green-400' :
     data.score >= 6 ? 'text-yellow-400' :
@@ -95,6 +96,7 @@ export default function AnalysisResult({ data, exercise, frames = [], onFrameHig
             {data.positives.map((p, i) => {
               const ref = p.frameRef;
               const hasFrame = ref !== undefined && ref !== null && !!frames[ref];
+              const label = frameLabels[ref!] ?? `f${ref! + 1}`;
               return (
                 <li key={i} className="space-y-2">
                   <div className="flex items-start gap-2">
@@ -103,7 +105,7 @@ export default function AnalysisResult({ data, exercise, frames = [], onFrameHig
                   </div>
                   {hasFrame && (
                     <div className="pl-4">
-                      <FrameThumb frame={frames[ref!]} frameIndex={ref!} onClick={() => onFrameHighlight(ref!)} />
+                      <FrameThumb frame={frames[ref!]} label={label} onClick={() => onFrameHighlight(ref!)} />
                     </div>
                   )}
                 </li>
@@ -122,6 +124,7 @@ export default function AnalysisResult({ data, exercise, frames = [], onFrameHig
               .map((c, i) => {
                 const ref = c.frameRef;
                 const hasFrame = ref !== undefined && ref !== null && !!frames[ref];
+                const label = frameLabels[ref!] ?? `f${ref! + 1}`;
                 return (
                   <li key={i} className={`border rounded p-3 space-y-2 ${priorityColors[c.priority]}`}>
                     <div className="flex items-start gap-2">
@@ -129,7 +132,7 @@ export default function AnalysisResult({ data, exercise, frames = [], onFrameHig
                       <span className="text-sm flex-1">{c.text}</span>
                     </div>
                     {hasFrame && (
-                      <FrameThumb frame={frames[ref!]} frameIndex={ref!} onClick={() => onFrameHighlight(ref!)} />
+                      <FrameThumb frame={frames[ref!]} label={label} onClick={() => onFrameHighlight(ref!)} />
                     )}
                   </li>
                 );

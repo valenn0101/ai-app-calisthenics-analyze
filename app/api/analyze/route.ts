@@ -1,24 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
-import { saveSession, Exercise } from '@/lib/storage';
+import { saveSession } from '@/lib/storage';
 
 // Increase max duration for video uploads
 export const maxDuration = 60;
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
+const kimiBaseUrl = (process.env.KIMI_BASE_URL ?? 'https://api.moonshot.ai/v1').replace(/\/+$/, '');
+const kimiModel = process.env.KIMI_MODEL ?? 'kimi-k2.5';
 
-export type Provider = 'claude' | 'gemini';
-
-const EXERCISE_LABELS: Record<Exercise, string> = {
-  muscle_up: 'Muscle Up',
-  pull_up: 'Pull Up / Dominadas',
-  push_up: 'Push Up / Flexiones',
-  dip: 'Dip / Fondos',
-  planche: 'Planche / Plancha',
-  l_sit: 'L-Sit',
-};
+export type Provider = 'claude' | 'gemini' | 'kimi';
 
 // Prompt for frame-based analysis (Claude + Gemini frames fallback)
 const ANALYSIS_PROMPT_FRAMES = (exerciseLabel: string, frameCount: number) =>
@@ -41,34 +34,43 @@ Devuelve SOLAMENTE un JSON válido con esta estructura exacta (sin texto adicion
 
 Sé específico, técnico y accionable. El shareText debe ser autocontenido para que un agente pueda entender el contexto sin ver el video.`;
 
-// Prompt for Gemini native video — includes frame timestamps so frameRef can still be used
-const ANALYSIS_PROMPT_VIDEO = (exerciseLabel: string, frameCount: number, duration: number) => {
-  const timestamps = Array.from({ length: frameCount }, (_, i) =>
-    `frame ${i} ≈ ${(i * duration / Math.max(frameCount - 1, 1)).toFixed(1)}s`
-  ).join(', ');
+const KIMI_SYSTEM_PROMPT =
+  'Eres un coach experto en calistenia. Analiza la técnica del ejercicio mostrado en las imágenes (frames de video). Evalúa fases del movimiento, errores biomecánicos y da recomendaciones específicas.';
 
-  return `Eres un coach experto en calistenia. Analiza la técnica de ${exerciseLabel} en este video completo.
+// Prompt for Gemini native video — Gemini identifies exact timestamps natively
+const ANALYSIS_PROMPT_VIDEO = (exerciseLabel: string) =>
+  `Eres un coach experto en calistenia. Analiza la técnica de ${exerciseLabel} en este video.
 
-El video tiene ${duration.toFixed(1)} segundos. Para referencias visuales, el usuario tiene estos frames extraídos: ${timestamps}.
-Cuando referencies un momento específico, usa frameRef con el índice (0-${frameCount - 1}) del frame más cercano al instante que describís.
+DATOS DEL ATLETA:
+- Peso: 86 kg (Fundamental: valora la potencia absoluta necesaria para este peso).
+- Altura: 175 cm.
+- Edad: 24 años.
+- Objetivo: Muscle-up (Prioriza la altura del tirón y la trayectoria).
 
-Devuelve SOLAMENTE un JSON válido con esta estructura exacta (sin texto adicional):
+INSTRUCCIONES DE ANÁLISIS Y TIMESTAMPS:
+1. ANCLAJE TEMPORAL ESTRICTO (CRÍTICO): No adivines ni calcules promedios de tiempo. Busca visualmente el momento exacto donde la barra hace contacto con el cuerpo o el momento exacto del error. 
+2. FORMATO: El timestamp debe coincidir exactamente con el segundo real del video donde la acción es evidente (ej. 6.2). Si la acción ocurre en el segundo 6, no escribas 5.4.
+3. EXTREMA PRECISIÓN DE TIEMPO (CRÍTICO): Los campos "timestamp" deben ser el segundo exacto con decimales (ejemplo: 1.4, 3.7) donde ocurre la acción visible. Esto es crítico porque el sistema usará estos números para que el usuario haga clic y salte a ese frame exacto en su reproductor de video. No redondees a números enteros.
+4. No califiques como un juez de élite olímpica. 
+5. BALANCE DE PESO: Si el atleta logra llevar la barra al esternón con 86kg de peso corporal, el score debe ser alto (7-8+), incluso si hay un ligero balanceo.
+6. Valora el progreso.
+
+Devuelve SOLAMENTE un JSON válido:
 {
   "score": <número 1-10>,
-  "phase": "<fase del movimiento detectada>",
-  "positives": [
-    {"text": "<punto positivo>", "frameRef": <índice 0-${frameCount - 1} o null>}
-  ],
-  "corrections": [
-    {"text": "<corrección específica>", "frameRef": <índice o null>, "priority": "<high|medium|low>"}
-  ],
-  "cues": ["<cue técnico breve 1>", "<cue 2>", "<cue 3>"],
-  "shareText": "<texto completo listo para compartir con agente, incluye ejercicio, score, correcciones principales y próximos pasos>",
-  "nextSteps": ["<paso concreto 1>", "<paso 2>", "<paso 3>"]
+  "phase": "<fase del movimiento>",
+  "positives": [{"text": "<punto positivo>", "timestamp": <número decimal, ej: 2.3>}],
+  "corrections": [{"text": "<corrección>", "timestamp": <número decimal, ej: 4.8>, "priority": "<high|medium|low>"}],
+  "cues": ["<cue técnico 1>", "<cue 2>", "<cue 3>"],
+  "shareText": "<Texto alentador. Reconoce el mérito de mover 86kg con esa explosividad antes de corregir.>",
+  "raw_metrics": {
+    "estimated_peak_height": "<ej: chin, chest, stomach>",
+    "leg_swing_detected": <boolean>
+  },
+  "nextSteps": ["<paso 1>", "<paso 2>", "<paso 3>"]
 }
 
-Sé específico, técnico y accionable.`;
-};
+Sé específico, técnico y empoderador.`;
 
 function selectFrames(frames: string[]): string[] {
   if (frames.length <= 16) return frames;
@@ -118,7 +120,7 @@ async function analyzeWithGeminiFrames(frames: string[], exerciseLabel: string):
   }));
 
   const response = await genai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3.1-pro-preview',
     contents: [{
       role: 'user',
       parts: [
@@ -133,13 +135,56 @@ async function analyzeWithGeminiFrames(frames: string[], exerciseLabel: string):
   return text;
 }
 
+// --- Kimi: OpenAI-compatible multimodal request with base64 frames ---
+async function analyzeWithKimiFrames(frames: string[], exerciseLabel: string): Promise<string> {
+  const content = [
+    ...frames.map(frame => ({
+      type: 'image_url',
+      image_url: frame,
+    })),
+    { type: 'text', text: ANALYSIS_PROMPT_FRAMES(exerciseLabel, frames.length) },
+  ];
+
+  const response = await fetch(`${kimiBaseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.KIMI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: kimiModel,
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: KIMI_SYSTEM_PROMPT },
+        { role: 'user', content },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => '');
+    throw new Error(`Kimi request failed (${response.status}): ${details || response.statusText}`);
+  }
+
+  const data = await response.json();
+  const contentRaw = data?.choices?.[0]?.message?.content;
+  if (typeof contentRaw === 'string' && contentRaw.trim()) return contentRaw;
+  if (Array.isArray(contentRaw)) {
+    const text = contentRaw
+      .filter((part: { type?: string; text?: string }) => part?.type === 'text' && typeof part.text === 'string')
+      .map((part: { text: string }) => part.text)
+      .join('\n')
+      .trim();
+    if (text) return text;
+  }
+  throw new Error('No text response from Kimi');
+}
+
 // --- Gemini: native video via File API ---
 async function analyzeWithGeminiVideo(
   videoBuffer: ArrayBuffer,
   mimeType: string,
   exerciseLabel: string,
-  frameCount: number,
-  videoDuration: number,
 ): Promise<string> {
   const blob = new Blob([videoBuffer], { type: mimeType });
 
@@ -166,12 +211,12 @@ async function analyzeWithGeminiVideo(
   let rawText: string;
   try {
     const response = await genai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: [{
         role: 'user',
         parts: [
           { fileData: { mimeType: fileInfo.mimeType!, fileUri: fileInfo.uri! } },
-          { text: ANALYSIS_PROMPT_VIDEO(exerciseLabel, frameCount, videoDuration) },
+          { text: ANALYSIS_PROMPT_VIDEO(exerciseLabel) },
         ],
       }],
     });
@@ -188,7 +233,7 @@ async function analyzeWithGeminiVideo(
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') ?? '';
-    let exercise: Exercise;
+    let exercise: string;
     let provider: Provider;
     let frames: string[] = [];
     let rawText: string;
@@ -201,10 +246,8 @@ export async function POST(req: NextRequest) {
 
       const formData = await req.formData();
       const videoFile = formData.get('video') as File | null;
-      exercise = (formData.get('exercise') as Exercise) ?? 'muscle_up';
+      exercise = (formData.get('exercise') as string) || '';
       provider = 'gemini';
-      const frameCount = parseInt(formData.get('frameCount') as string) || 8;
-      const videoDuration = parseFloat(formData.get('videoDuration') as string) || 10;
 
       if (!videoFile) {
         return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
@@ -212,15 +255,14 @@ export async function POST(req: NextRequest) {
 
       const mimeType = videoFile.type || 'video/mp4';
       const videoBuffer = await videoFile.arrayBuffer();
-      const exerciseLabel = EXERCISE_LABELS[exercise] || exercise;
 
-      rawText = await analyzeWithGeminiVideo(videoBuffer, mimeType, exerciseLabel, frameCount, videoDuration);
+      rawText = await analyzeWithGeminiVideo(videoBuffer, mimeType, exercise);
 
-    // --- JSON: Claude or Gemini frames ---
+    // --- JSON: Claude, Gemini or Kimi frames ---
     } else {
       const body = await req.json();
       frames = body.frames ?? [];
-      exercise = body.exercise as Exercise;
+      exercise = body.exercise as string;
       provider = (body.provider ?? 'claude') as Provider;
 
       if (!frames.length) {
@@ -230,19 +272,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No exercise specified' }, { status: 400 });
       }
 
-      const exerciseLabel = EXERCISE_LABELS[exercise] || exercise;
       const selectedFrames = selectFrames(frames);
 
       if (provider === 'gemini') {
         if (!process.env.GOOGLE_API_KEY) {
           return NextResponse.json({ error: 'GOOGLE_API_KEY not configured' }, { status: 500 });
         }
-        rawText = await analyzeWithGeminiFrames(selectedFrames, exerciseLabel);
+        rawText = await analyzeWithGeminiFrames(selectedFrames, exercise);
+      } else if (provider === 'kimi') {
+        if (!process.env.KIMI_API_KEY) {
+          return NextResponse.json({ error: 'KIMI_API_KEY not configured' }, { status: 500 });
+        }
+        rawText = await analyzeWithKimiFrames(selectedFrames, exercise);
       } else {
         if (!process.env.ANTHROPIC_API_KEY) {
           return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
         }
-        rawText = await analyzeWithClaude(selectedFrames, exerciseLabel);
+        rawText = await analyzeWithClaude(selectedFrames, exercise);
       }
     }
 
@@ -253,7 +299,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to parse AI response', raw: rawText }, { status: 500 });
     }
 
-    const exerciseLabel = EXERCISE_LABELS[exercise] || exercise;
+    const exerciseLabel = exercise;
     const summary = analysisData.positives?.[0]?.text || `${exerciseLabel} analysis`;
     const session = saveSession({
       exercise,

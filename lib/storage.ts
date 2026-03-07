@@ -2,25 +2,19 @@ import fs from 'fs';
 import path from 'path';
 import * as XLSX from 'xlsx';
 
-export type Exercise =
-  | 'muscle_up'
-  | 'pull_up'
-  | 'push_up'
-  | 'dip'
-  | 'planche'
-  | 'l_sit';
+export type Exercise = string;
 
 export interface AnalysisResult {
   score: number;
   phase: string;
-  positives: Array<{ text: string; frameRef?: number }>;
-  corrections: Array<{ text: string; frameRef?: number; priority: 'high' | 'medium' | 'low' }>;
+  positives: Array<{ text: string; frameRef?: number; timestamp?: number }>;
+  corrections: Array<{ text: string; frameRef?: number; timestamp?: number; priority: 'high' | 'medium' | 'low' }>;
   cues: string[];
   shareText: string;
   nextSteps: string[];
 }
 
-export type Provider = 'claude' | 'gemini';
+export type Provider = 'claude' | 'gemini' | 'kimi';
 
 export interface SessionRecord {
   id: string;
