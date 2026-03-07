@@ -20,6 +20,8 @@ export interface AnalysisResult {
   nextSteps: string[];
 }
 
+export type Provider = 'claude' | 'gemini';
+
 export interface SessionRecord {
   id: string;
   exercise: Exercise;
@@ -29,6 +31,7 @@ export interface SessionRecord {
   shareText: string;
   framesData: string[]; // base64 frames
   analysisData: AnalysisResult;
+  provider: Provider;
   previousScore?: number;
   improvement?: number;
 }
@@ -87,6 +90,7 @@ export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' 
 function writeExcel(sessions: SessionRecord[]) {
   const rows = sessions.map(s => ({
     ID: s.id,
+    Provider: s.provider ?? 'claude',
     Exercise: s.exercise,
     Date: s.date,
     Score: s.score,
@@ -109,6 +113,7 @@ function writeExcel(sessions: SessionRecord[]) {
   // Set column widths
   ws['!cols'] = [
     { wch: 24 }, // ID
+    { wch: 10 }, // Provider
     { wch: 14 }, // Exercise
     { wch: 22 }, // Date
     { wch: 8 },  // Score

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import FrameStrip from '@/components/FrameStrip';
 import AnalysisResult from '@/components/AnalysisResult';
 import SharePanel from '@/components/SharePanel';
-import { Exercise, AnalysisResult as AnalysisResultType } from '@/lib/storage';
+import { Exercise, Provider, AnalysisResult as AnalysisResultType } from '@/lib/storage';
 
 const EXERCISES: { value: Exercise; label: string }[] = [
   { value: 'muscle_up', label: 'Muscle Up' },
@@ -20,6 +20,7 @@ type AppState = 'idle' | 'extracting' | 'analyzing' | 'done' | 'error';
 
 export default function Home() {
   const [exercise, setExercise] = useState<Exercise>('muscle_up');
+  const [provider, setProvider] = useState<Provider>('claude');
   const [frames, setFrames] = useState<string[]>([]);
   const [selectedFrames, setSelectedFrames] = useState<Set<number>>(new Set());
   const [highlightedFrames, setHighlightedFrames] = useState<Set<number>>(new Set());
@@ -107,7 +108,7 @@ export default function Home() {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frames, exercise }),
+        body: JSON.stringify({ frames, exercise, provider }),
       });
 
       const data = await res.json();
@@ -182,6 +183,33 @@ export default function Home() {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+        {/* Provider Selector */}
+        <div>
+          <label className="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
+            Modelo de IA
+          </label>
+          <div className="flex gap-2">
+            {([
+              { value: 'claude' as Provider, label: 'Claude Opus 4.6', color: 'violet' },
+              { value: 'gemini' as Provider, label: 'Gemini 2.0 Flash', color: 'blue' },
+            ] as const).map(p => (
+              <button
+                key={p.value}
+                onClick={() => setProvider(p.value)}
+                className={`flex-1 text-xs font-mono py-2 px-3 rounded border transition-all ${
+                  provider === p.value
+                    ? p.color === 'violet'
+                      ? 'border-violet-500 bg-violet-500/10 text-violet-300'
+                      : 'border-blue-500 bg-blue-500/10 text-blue-300'
+                    : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Upload + Exercise Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Exercise Selector */}
@@ -270,7 +298,9 @@ export default function Home() {
             }`}
           >
             {appState === 'analyzing' ? (
-              <span className="animate-pulse">Analizando con Claude...</span>
+              <span className="animate-pulse">
+                Analizando con {provider === 'gemini' ? 'Gemini' : 'Claude'}...
+              </span>
             ) : (
               'Analizar Técnica'
             )}
