@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { AnalysisResult, VerificationResult } from '@/lib/storage';
 
 interface Message {
@@ -27,6 +28,7 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -70,6 +72,27 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
     }
   };
 
+  const handleSave = async () => {
+    if (messages.length === 0 || saveState !== 'idle') return;
+    setSaveState('saving');
+    try {
+      const res = await fetch('/api/chats/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
+          exercise,
+          score: analysis.score,
+        }),
+      });
+      if (!res.ok) throw new Error('Error al guardar');
+      setSaveState('saved');
+    } catch {
+      setSaveState('idle');
+      setError('No se pudo guardar la conversación.');
+    }
+  };
+
   return (
     <div className="flex flex-col" style={{ height: 520 }}>
       {/* Messages */}
@@ -106,6 +129,9 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
                     : 'bg-white/[0.03] text-gray-200 border border-white/[0.05] rounded-tl-sm'
                 }`}
               >
+                {m.role === 'model' && (
+                  <div className="text-[9px] font-mono text-gray-600 mb-1 uppercase tracking-wider">Coach</div>
+                )}
                 {m.content}
               </div>
             </div>
@@ -127,15 +153,45 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
           </div>
         )}
 
-        {error && (
-          <p className="text-xs text-red-400 text-center">{error}</p>
-        )}
+        {error && <p className="text-xs text-red-400 text-center">{error}</p>}
 
         <div ref={bottomRef} />
       </div>
 
+      {/* Save bar (visible when there are messages) */}
+      {messages.length > 0 && (
+        <div className="py-2 flex items-center justify-between border-t border-white/[0.05]">
+          <button
+            onClick={handleSave}
+            disabled={saveState !== 'idle'}
+            className={`text-[10px] font-mono transition-colors ${
+              saveState === 'saved'
+                ? 'text-emerald-400'
+                : saveState === 'saving'
+                ? 'text-gray-600 animate-pulse'
+                : 'text-gray-600 hover:text-gray-300'
+            }`}
+          >
+            {saveState === 'saved'
+              ? '✓ Conversación guardada'
+              : saveState === 'saving'
+              ? 'Guardando...'
+              : '↓ Guardar conversación'}
+          </button>
+
+          {saveState === 'saved' && (
+            <Link
+              href="/chats"
+              className="text-[10px] font-mono text-gray-500 hover:text-white transition-colors"
+            >
+              Ver guardadas →
+            </Link>
+          )}
+        </div>
+      )}
+
       {/* Input */}
-      <div className="pt-3 border-t border-white/[0.07] flex-shrink-0">
+      <div className="pt-2 border-t border-white/[0.07] flex-shrink-0">
         <form
           onSubmit={e => { e.preventDefault(); send(input); }}
           className="flex gap-2"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { saveSession, Exercise } from '@/lib/storage';
+import { getUsername } from '@/lib/auth';
 
 export const maxDuration = 60;
 
@@ -122,6 +123,9 @@ async function analyzeWithGemini(
 
 export async function POST(req: NextRequest) {
   try {
+    const username = getUsername();
+    if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+
     if (!process.env.GOOGLE_API_KEY) {
       return NextResponse.json({ error: 'GOOGLE_API_KEY not configured' }, { status: 500 });
     }
@@ -158,7 +162,7 @@ export async function POST(req: NextRequest) {
       shareText: analysisData.shareText,
       framesData,
       analysisData,
-    });
+    }, username);
 
     return NextResponse.json({ session, analysisData });
   } catch (error: unknown) {

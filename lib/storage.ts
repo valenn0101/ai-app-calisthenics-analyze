@@ -42,30 +42,40 @@ export interface SessionRecord {
   improvement?: number;
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const JSON_PATH = path.join(DATA_DIR, 'sessions.json');
-const EXCEL_PATH = path.join(DATA_DIR, 'sessions.xlsx');
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
+function getUserDir(username: string): string {
+  return path.join(process.cwd(), 'data', 'users', username);
 }
 
-export function readSessions(): SessionRecord[] {
-  ensureDataDir();
-  if (!fs.existsSync(JSON_PATH)) return [];
+function getJsonPath(username: string): string {
+  return path.join(getUserDir(username), 'sessions.json');
+}
+
+function getExcelPath(username: string): string {
+  return path.join(getUserDir(username), 'sessions.xlsx');
+}
+
+function ensureUserDir(username: string) {
+  const dir = getUserDir(username);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+export function readSessions(username: string): SessionRecord[] {
+  ensureUserDir(username);
+  const p = getJsonPath(username);
+  if (!fs.existsSync(p)) return [];
   try {
-    const raw = fs.readFileSync(JSON_PATH, 'utf-8');
-    return JSON.parse(raw);
+    return JSON.parse(fs.readFileSync(p, 'utf-8'));
   } catch {
     return [];
   }
 }
 
-export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' | 'improvement'>): SessionRecord {
-  ensureDataDir();
-  const sessions = readSessions();
+export function saveSession(
+  session: Omit<SessionRecord, 'id' | 'previousScore' | 'improvement'>,
+  username: string
+): SessionRecord {
+  ensureUserDir(username);
+  const sessions = readSessions(username);
 
   const previousSessions = sessions
     .filter(s => s.exercise === session.exercise)
@@ -82,18 +92,18 @@ export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' 
   };
 
   sessions.push(newSession);
-  fs.writeFileSync(JSON_PATH, JSON.stringify(sessions, null, 2), 'utf-8');
+  fs.writeFileSync(getJsonPath(username), JSON.stringify(sessions, null, 2), 'utf-8');
 
   try {
-    writeExcel(sessions);
+    writeExcel(sessions, username);
   } catch {
-    // Excel write may fail if file is open in another program
+    // Excel write may fail if file is open
   }
 
   return newSession;
 }
 
-function writeExcel(sessions: SessionRecord[]) {
+function writeExcel(sessions: SessionRecord[], username: string) {
   const rows = sessions.map(s => ({
     ID: s.id,
     Exercise: s.exercise,
@@ -127,15 +137,15 @@ function writeExcel(sessions: SessionRecord[]) {
     const exWs = XLSX.utils.json_to_sheet(exRows);
     XLSX.utils.book_append_sheet(wb, exWs, ex.slice(0, 31));
   }
-  XLSX.writeFile(wb, EXCEL_PATH);
+  XLSX.writeFile(wb, getExcelPath(username));
 }
 
-export function getSessionsByExercise(exercise: Exercise): SessionRecord[] {
-  return readSessions()
+export function getSessionsByExercise(exercise: Exercise, username: string): SessionRecord[] {
+  return readSessions(username)
     .filter(s => s.exercise === exercise)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
-export function getAllSessions(): SessionRecord[] {
-  return readSessions().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+export function getAllSessions(username: string): SessionRecord[] {
+  return readSessions(username).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import FrameStrip from '@/components/FrameStrip';
 import AnalysisResult from '@/components/AnalysisResult';
 import ChatPanel from '@/components/ChatPanel';
@@ -31,9 +32,23 @@ export default function Home() {
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [verifyError, setVerifyError] = useState('');
 
+  const [displayName, setDisplayName] = useState('');
+  const router = useRouter();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => { if (d.user?.displayName) setDisplayName(d.user.displayName); });
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  };
 
   const extractFrames = useCallback((file: File): Promise<string[]> => {
     return new Promise((resolve, reject) => {
@@ -256,14 +271,30 @@ export default function Home() {
             <div className="text-base font-light tracking-widest text-white">
               FORM<span className="text-gray-400">CHECK</span>
             </div>
-            <div className="text-[10px] text-gray-600 tracking-wider mt-0.5">Análisis de técnica · Gemini</div>
+            {displayName && (
+              <div className="text-[10px] text-gray-600 font-mono mt-0.5">{displayName}</div>
+            )}
           </div>
-          <Link
-            href="/history"
-            className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
-          >
-            Historial
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/chats"
+              className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
+            >
+              Chats
+            </Link>
+            <Link
+              href="/history"
+              className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
+            >
+              Historial
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-[11px] font-mono text-gray-600 hover:text-white px-3 py-1.5 rounded-lg transition-all"
+            >
+              Salir
+            </button>
+          </div>
         </div>
       </header>
 
