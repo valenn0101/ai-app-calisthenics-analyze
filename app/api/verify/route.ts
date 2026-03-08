@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     }));
 
     const response = await genai.models.generateContent({
-      model: 'gemini-2.5-pro-preview-03-25',
+      model: 'gemini-3.1-pro-preview',
       contents: [{
         role: 'user',
         parts: [
