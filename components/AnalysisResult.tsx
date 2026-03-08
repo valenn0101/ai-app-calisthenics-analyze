@@ -166,6 +166,9 @@ export default function AnalysisResult({
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span>{verification.confirmed ? '✓ Confirmado' : '↻ Revisado'}</span>
                           <span className="opacity-50">· confianza {verification.confidence}</span>
+                          {verification.revisedTimeRef != null && (
+                            <span className="ml-auto text-[10px] opacity-60">→ @{verification.revisedTimeRef}s</span>
+                          )}
                         </div>
                         <div className="text-gray-300 opacity-80">{verification.observation}</div>
                         {!verification.confirmed && verification.revisedCorrection && (

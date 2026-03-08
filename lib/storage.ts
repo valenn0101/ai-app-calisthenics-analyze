@@ -7,8 +7,8 @@ export type Exercise = string;
 export interface AnalysisResult {
   score: number;
   phase: string;
-  positives: Array<{ text: string; timeRef?: number | null }>;
-  corrections: Array<{ text: string; timeRef?: number | null; priority: 'high' | 'medium' | 'low' }>;
+  positives: Array<{ text: string; timeRef?: number | null; frameDescription?: string | null }>;
+  corrections: Array<{ text: string; timeRef?: number | null; frameDescription?: string | null; priority: 'high' | 'medium' | 'low' }>;
   cues: string[];
   shareText: string;
   nextSteps: string[];
