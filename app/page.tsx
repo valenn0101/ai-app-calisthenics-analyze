@@ -191,7 +191,7 @@ export default function Home() {
           <div className="flex gap-2">
             {([
               { value: 'claude' as Provider, label: 'Claude Opus 4.6', color: 'violet' },
-              { value: 'gemini' as Provider, label: 'Gemini 2.0 Flash', color: 'blue' },
+              { value: 'gemini' as Provider, label: 'Gemini 3 Flash Preview', color: 'blue' },
             ] as const).map(p => (
               <button
                 key={p.value}

@@ -82,7 +82,11 @@ export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' 
   fs.writeFileSync(JSON_PATH, JSON.stringify(sessions, null, 2), 'utf-8');
 
   // Write Excel (summary without base64 frames for readability)
-  writeExcel(sessions);
+  try {
+    writeExcel(sessions);
+  } catch {
+    // Excel write may fail if file is open in another program (e.g. Excel on Windows)
+  }
 
   return newSession;
 }
