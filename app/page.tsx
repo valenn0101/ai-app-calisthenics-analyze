@@ -5,7 +5,7 @@ import Link from 'next/link';
 import FrameStrip from '@/components/FrameStrip';
 import AnalysisResult from '@/components/AnalysisResult';
 import SharePanel from '@/components/SharePanel';
-import { Exercise, Provider, AnalysisResult as AnalysisResultType } from '@/lib/storage';
+import { Exercise, AnalysisResult as AnalysisResultType, VerificationResult } from '@/lib/storage';
 
 const EXERCISES: { value: Exercise; label: string }[] = [
   { value: 'muscle_up', label: 'Muscle Up' },
@@ -17,10 +17,10 @@ const EXERCISES: { value: Exercise; label: string }[] = [
 ];
 
 type AppState = 'idle' | 'extracting' | 'analyzing' | 'done' | 'error';
+type VerifyState = 'idle' | 'capturing' | 'verifying' | 'done' | 'error';
 
 export default function Home() {
   const [exercise, setExercise] = useState<Exercise>('muscle_up');
-  const [provider, setProvider] = useState<Provider>('claude');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [frames, setFrames] = useState<string[]>([]);
@@ -32,6 +32,12 @@ export default function Home() {
   const [error, setError] = useState<string>('');
   const [activePanel, setActivePanel] = useState<'analysis' | 'share'>('analysis');
   const [videoSrc, setVideoSrc] = useState<string>('');
+
+  // timeRef verification state
+  const [timeRefFrames, setTimeRefFrames] = useState<Map<number, string>>(new Map());
+  const [verifyState, setVerifyState] = useState<VerifyState>('idle');
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  const [verifyError, setVerifyError] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -81,6 +87,39 @@ export default function Home() {
     });
   }, []);
 
+  // Capture frames at specific timestamps from the original video file
+  const captureFramesAtTimes = useCallback(async (times: number[]): Promise<Map<number, string>> => {
+    if (!videoFile || times.length === 0) return new Map();
+
+    const url = URL.createObjectURL(videoFile);
+    const tempVideo = document.createElement('video');
+    tempVideo.src = url;
+    tempVideo.muted = true;
+
+    await new Promise<void>(resolve => {
+      tempVideo.onloadedmetadata = () => resolve();
+    });
+
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext('2d')!;
+    const result = new Map<number, string>();
+
+    for (const time of times) {
+      const clampedTime = Math.min(time, tempVideo.duration - 0.05);
+      await new Promise<void>(resolve => {
+        tempVideo.onseeked = () => {
+          ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+          result.set(time, canvas.toDataURL('image/jpeg', 0.85));
+          resolve();
+        };
+        tempVideo.currentTime = clampedTime;
+      });
+    }
+
+    URL.revokeObjectURL(url);
+    return result;
+  }, [videoFile]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,6 +128,9 @@ export default function Home() {
     setSelectedFrames(new Set());
     setHighlightedFrames(new Set());
     setAnalysis(null);
+    setTimeRefFrames(new Map());
+    setVerificationResult(null);
+    setVerifyState('idle');
     setError('');
     setAppState('extracting');
 
@@ -104,31 +146,22 @@ export default function Home() {
   };
 
   const handleAnalyze = async () => {
-    if (frames.length === 0) return;
+    if (!videoFile) return;
     setAppState('analyzing');
     setError('');
+    setAnalysis(null);
+    setTimeRefFrames(new Map());
+    setVerificationResult(null);
+    setVerifyState('idle');
 
     try {
-      let res: Response;
+      const formData = new FormData();
+      formData.append('video', videoFile);
+      formData.append('exercise', exercise);
+      formData.append('videoDuration', videoDuration.toString());
+      formData.append('framesJson', JSON.stringify(frames));
 
-      if (provider === 'gemini' && videoFile) {
-        // Gemini: send video file directly via multipart
-        const formData = new FormData();
-        formData.append('video', videoFile);
-        formData.append('exercise', exercise);
-        formData.append('provider', 'gemini');
-        formData.append('frameCount', frames.length.toString());
-        formData.append('videoDuration', videoDuration.toString());
-        res = await fetch('/api/analyze', { method: 'POST', body: formData });
-      } else {
-        // Claude (or Gemini fallback): send extracted frames as JSON
-        res = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ frames, exercise, provider }),
-        });
-      }
-
+      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
 
@@ -137,21 +170,74 @@ export default function Home() {
         improvement: data.session.improvement,
         previousScore: data.session.previousScore,
       });
+      setAppState('done');
 
-      // Auto-highlight referenced frames
+      // Auto-highlight frames in FrameStrip closest to timeRef timestamps
       const refs = new Set<number>();
-      data.analysisData.positives?.forEach((p: { frameRef?: number }) => {
-        if (p.frameRef !== undefined && p.frameRef !== null) refs.add(p.frameRef);
+      const allTimeRefs: number[] = [];
+
+      data.analysisData.positives?.forEach((p: { timeRef?: number | null }) => {
+        if (p.timeRef != null) allTimeRefs.push(p.timeRef);
       });
-      data.analysisData.corrections?.forEach((c: { frameRef?: number }) => {
-        if (c.frameRef !== undefined && c.frameRef !== null) refs.add(c.frameRef);
+      data.analysisData.corrections?.forEach((c: { timeRef?: number | null }) => {
+        if (c.timeRef != null) allTimeRefs.push(c.timeRef);
       });
+
+      // Map timeRef seconds → closest frame index for FrameStrip highlighting
+      if (frames.length > 0 && videoDuration > 0) {
+        for (const t of allTimeRefs) {
+          const idx = Math.round((t / videoDuration) * (frames.length - 1));
+          refs.add(Math.min(idx, frames.length - 1));
+        }
+      }
       setHighlightedFrames(refs);
       setSelectedFrames(refs);
-      setAppState('done');
+
+      // Capture exact timeRef frames for thumbnails
+      if (allTimeRefs.length > 0) {
+        const captured = await captureFramesAtTimes(allTimeRefs);
+        setTimeRefFrames(captured);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error en análisis');
       setAppState('error');
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!analysis || timeRefFrames.size === 0) return;
+
+    // Only verify corrections that have a timeRef and a captured frame
+    const correctionsWithFrame = analysis.corrections.filter(
+      c => c.timeRef != null && timeRefFrames.has(c.timeRef)
+    );
+    if (correctionsWithFrame.length === 0) return;
+
+    setVerifyState('verifying');
+    setVerifyError('');
+    setVerificationResult(null);
+
+    try {
+      const framesArr = correctionsWithFrame.map(c => timeRefFrames.get(c.timeRef!)!);
+      const exerciseLabel = EXERCISES.find(e => e.value === exercise)?.label || exercise;
+
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          frames: framesArr,
+          corrections: correctionsWithFrame,
+          exercise: exerciseLabel,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed');
+
+      setVerificationResult(data);
+      setVerifyState('done');
+    } catch (err) {
+      setVerifyError(err instanceof Error ? err.message : 'Error en verificación');
+      setVerifyState('error');
     }
   };
 
@@ -164,17 +250,10 @@ export default function Home() {
     });
   };
 
-  const handleFrameHighlight = (frameIndex: number) => {
-    setHighlightedFrames(new Set([frameIndex]));
-    setSelectedFrames(prev => {
-      const next = new Set(prev);
-      next.add(frameIndex);
-      return next;
-    });
-    document.getElementById('frame-strip')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
-
   const isLoading = appState === 'extracting' || appState === 'analyzing';
+  const correctionsWithFrame = analysis?.corrections.filter(
+    c => c.timeRef != null && timeRefFrames.has(c.timeRef)
+  ) ?? [];
 
   return (
     <main className="min-h-screen bg-[#060609] text-white">
@@ -201,34 +280,6 @@ export default function Home() {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-        {/* Provider Selector */}
-        <div>
-          <label className="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
-            Modelo de IA
-          </label>
-          <div className="flex flex-col sm:flex-row gap-2">
-            {([
-              { value: 'claude' as Provider, label: 'Claude Opus 4.6', color: 'violet' },
-              { value: 'gemini' as Provider, label: 'Gemini 3 Flash Preview', badge: 'video nativo', color: 'blue' },
-            ] as const).map(p => (
-              <button
-                key={p.value}
-                onClick={() => setProvider(p.value)}
-                className={`flex-1 text-xs font-mono py-2 px-3 rounded border transition-all ${
-                  provider === p.value
-                    ? p.color === 'violet'
-                      ? 'border-violet-500 bg-violet-500/10 text-violet-300'
-                      : 'border-blue-500 bg-blue-500/10 text-blue-300'
-                    : 'border-gray-700 text-gray-400 hover:border-gray-600'
-                }`}
-              >
-                <div>{p.label}</div>
-                {'badge' in p && <div className="text-[10px] opacity-60 mt-0.5">{p.badge}</div>}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Upload + Exercise Selection */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Exercise Selector */}
@@ -279,7 +330,7 @@ export default function Home() {
                 </div>
               ) : frames.length > 0 ? (
                 <div className="text-sm text-violet-400 font-mono">
-                  ✓ {frames.length} frames extraídos
+                  ✓ {frames.length} frames · {videoDuration.toFixed(1)}s
                   <div className="text-xs text-gray-500 mt-1">Click para cambiar video</div>
                 </div>
               ) : (
@@ -317,11 +368,7 @@ export default function Home() {
             }`}
           >
             {appState === 'analyzing' ? (
-              <span className="animate-pulse">
-                {provider === 'gemini' && videoFile
-                  ? 'Subiendo y analizando con Gemini...'
-                  : `Analizando con ${provider === 'gemini' ? 'Gemini' : 'Claude'}...`}
-              </span>
+              <span className="animate-pulse">Subiendo y analizando con Gemini...</span>
             ) : (
               'Analizar Técnica'
             )}
@@ -357,14 +404,40 @@ export default function Home() {
 
             <div className="p-4 sm:p-6">
               {activePanel === 'analysis' ? (
-                <AnalysisResult
-                  data={analysis}
-                  exercise={EXERCISES.find(e => e.value === exercise)?.label || exercise}
-                  frames={frames}
-                  onFrameHighlight={handleFrameHighlight}
-                  improvement={sessionMeta?.improvement}
-                  previousScore={sessionMeta?.previousScore}
-                />
+                <>
+                  <AnalysisResult
+                    data={analysis}
+                    exercise={EXERCISES.find(e => e.value === exercise)?.label || exercise}
+                    timeRefFrames={timeRefFrames}
+                    verificationResult={verificationResult}
+                    improvement={sessionMeta?.improvement}
+                    previousScore={sessionMeta?.previousScore}
+                  />
+
+                  {/* Verify button */}
+                  {correctionsWithFrame.length > 0 && verifyState !== 'done' && (
+                    <div className="mt-6 pt-6 border-t border-gray-800">
+                      <button
+                        onClick={handleVerify}
+                        disabled={verifyState === 'verifying'}
+                        className={`w-full py-2.5 px-4 rounded font-mono text-sm border transition-all ${
+                          verifyState === 'verifying'
+                            ? 'border-gray-700 text-gray-500 cursor-not-allowed'
+                            : 'border-blue-500/40 text-blue-300 hover:border-blue-400 hover:bg-blue-500/5'
+                        }`}
+                      >
+                        {verifyState === 'verifying' ? (
+                          <span className="animate-pulse">Verificando con Gemini...</span>
+                        ) : (
+                          `Verificar ${correctionsWithFrame.length} correcciones con Gemini`
+                        )}
+                      </button>
+                      {verifyState === 'error' && verifyError && (
+                        <p className="text-xs text-red-400 font-mono mt-2">{verifyError}</p>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <SharePanel
                   shareText={analysis.shareText}

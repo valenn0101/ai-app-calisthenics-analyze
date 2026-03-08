@@ -13,14 +13,26 @@ export type Exercise =
 export interface AnalysisResult {
   score: number;
   phase: string;
-  positives: Array<{ text: string; frameRef?: number }>;
-  corrections: Array<{ text: string; frameRef?: number; priority: 'high' | 'medium' | 'low' }>;
+  positives: Array<{ text: string; timeRef?: number | null }>;
+  corrections: Array<{ text: string; timeRef?: number | null; priority: 'high' | 'medium' | 'low' }>;
   cues: string[];
   shareText: string;
   nextSteps: string[];
 }
 
-export type Provider = 'claude' | 'gemini';
+export interface VerificationItem {
+  timeRef: number;
+  confirmed: boolean;
+  confidence: 'high' | 'medium' | 'low';
+  observation: string;
+  revisedCorrection: string | null;
+}
+
+export interface VerificationResult {
+  verifications: VerificationItem[];
+  accuracy: number;
+  summary: string;
+}
 
 export interface SessionRecord {
   id: string;
@@ -29,9 +41,8 @@ export interface SessionRecord {
   score: number;
   summary: string;
   shareText: string;
-  framesData: string[]; // base64 frames
+  framesData: string[]; // base64 frames for history display
   analysisData: AnalysisResult;
-  provider: Provider;
   previousScore?: number;
   improvement?: number;
 }
@@ -61,7 +72,6 @@ export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' 
   ensureDataDir();
   const sessions = readSessions();
 
-  // Find previous session for same exercise
   const previousSessions = sessions
     .filter(s => s.exercise === session.exercise)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -78,14 +88,12 @@ export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' 
 
   sessions.push(newSession);
 
-  // Write JSON
   fs.writeFileSync(JSON_PATH, JSON.stringify(sessions, null, 2), 'utf-8');
 
-  // Write Excel (summary without base64 frames for readability)
   try {
     writeExcel(sessions);
   } catch {
-    // Excel write may fail if file is open in another program (e.g. Excel on Windows)
+    // Excel write may fail if file is open in another program
   }
 
   return newSession;
@@ -94,7 +102,6 @@ export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' 
 function writeExcel(sessions: SessionRecord[]) {
   const rows = sessions.map(s => ({
     ID: s.id,
-    Provider: s.provider ?? 'claude',
     Exercise: s.exercise,
     Date: s.date,
     Score: s.score,
@@ -103,21 +110,18 @@ function writeExcel(sessions: SessionRecord[]) {
     Phase: s.analysisData.phase,
     Summary: s.summary,
     Positives: s.analysisData.positives.map(p => p.text).join(' | '),
-    Corrections: s.analysisData.corrections.map(c => `[${c.priority.toUpperCase()}] ${c.text}`).join(' | '),
+    Corrections: s.analysisData.corrections.map(c => `[${c.priority.toUpperCase()}${c.timeRef != null ? ` @${c.timeRef}s` : ''}] ${c.text}`).join(' | '),
     Cues: s.analysisData.cues.join(' | '),
     NextSteps: s.analysisData.nextSteps.join(' | '),
     ShareText: s.shareText,
     FrameCount: s.framesData.length,
-    LastUpdated: new Date().toISOString(),
   }));
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
 
-  // Set column widths
   ws['!cols'] = [
     { wch: 24 }, // ID
-    { wch: 10 }, // Provider
     { wch: 14 }, // Exercise
     { wch: 22 }, // Date
     { wch: 8 },  // Score
@@ -131,12 +135,10 @@ function writeExcel(sessions: SessionRecord[]) {
     { wch: 60 }, // NextSteps
     { wch: 80 }, // ShareText
     { wch: 10 }, // FrameCount
-    { wch: 24 }, // LastUpdated
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
 
-  // Per-exercise sheets
   const exercises = Array.from(new Set(sessions.map(s => s.exercise)));
   for (const ex of exercises) {
     const exRows = rows.filter(r => r.Exercise === ex);
