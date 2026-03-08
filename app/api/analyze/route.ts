@@ -10,9 +10,20 @@ const ANALYSIS_PROMPT = (exerciseLabel: string, duration: number) => `\
 Eres un coach elite de calistenia con más de 15 años analizando biomecánica del movimiento. \
 Analiza este video de ${exerciseLabel} con el máximo rigor técnico.
 
-El video dura ${duration.toFixed(1)} segundos. Para CADA observación debes indicar el segundo exacto \
-(con un decimal de precisión) donde ocurre ese momento. Estos segundos se usarán para extraer frames \
-de verificación, por lo que deben ser precisos y distribuidos a lo largo del video.
+El video dura ${duration.toFixed(1)} segundos.
+
+PROCESO OBLIGATORIO antes de generar el JSON:
+1. Primero, identifica la estructura temporal del video: dónde empieza la preparación, \
+dónde comienza el movimiento activo y dónde terminan las repeticiones.
+2. Para cada corrección, localiza el momento EXACTO en el video donde el error es \
+CLARAMENTE VISIBLE. Solo asigna un timeRef a ese instante específico.
+3. Describe brevemente qué ves en el frame de ese segundo (frameDescription) — esto te \
+obliga a confirmar que el timestamp corresponde al error descrito, no a una fase preparatoria.
+
+REGLA CRÍTICA sobre timeRef: El timestamp debe corresponder al momento donde el cuerpo \
+está ejecutando el gesto con el error. NO asignes timestamps a momentos de preparación \
+(atleta de pie quieto, subiendo al cajón, esperando) ni al inicio/final del video donde \
+el atleta aún no ha comenzado el movimiento o ya lo terminó.
 
 Criterios de evaluación obligatorios:
 - Alineación de columna y postura global
@@ -29,12 +40,17 @@ Devuelve SOLAMENTE un JSON válido con esta estructura exacta (sin texto adicion
   "score": <número 1-10, se permiten decimales como 7.5, sé riguroso>,
   "phase": "<fase principal detectada en el video>",
   "positives": [
-    {"text": "<descripción técnica precisa del punto positivo, menciona músculo/articulación>", "timeRef": <segundo exacto con 1 decimal, ej: 1.4>}
+    {
+      "text": "<descripción técnica precisa del punto positivo, menciona músculo/articulación>",
+      "timeRef": <segundo exacto con 1 decimal donde se observa claramente>,
+      "frameDescription": "<describe en 1 frase qué posición/gesto del atleta ves en ese frame>"
+    }
   ],
   "corrections": [
     {
       "text": "<descripción técnica precisa y accionable, menciona qué músculo o articulación falla y cómo corregirlo>",
-      "timeRef": <segundo exacto con 1 decimal donde se ve claramente el error>,
+      "timeRef": <segundo exacto con 1 decimal donde se ve claramente el error — debe ser durante el movimiento activo>,
+      "frameDescription": "<describe en 1 frase qué posición/gesto del atleta ves en ese frame que evidencia el error>",
       "priority": "<high|medium|low>"
     }
   ],
@@ -46,7 +62,8 @@ Devuelve SOLAMENTE un JSON válido con esta estructura exacta (sin texto adicion
 Reglas estrictas:
 - El score debe ser honesto con criterio técnico de competición, no condescendiente
 - Mínimo 2 corrections aunque la técnica sea muy buena
-- Los timeRef deben estar distribuidos por el video, no todos en 0.0
+- Los timeRef deben estar distribuidos a lo largo del movimiento activo, no en la preparación
+- El frameDescription es obligatorio y debe describir lo que realmente ves en ese segundo
 - priority "high" = compromete la ejecución o puede causar lesión
 - priority "medium" = afecta eficiencia o progresión
 - priority "low" = detalle de refinamiento técnico`;

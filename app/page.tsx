@@ -51,8 +51,8 @@ export default function Home() {
         const extractedFrames: string[] = [];
         let currentFrame = 0;
 
-        canvas.width = 640;
-        canvas.height = 360;
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
 
         const seekNext = () => {
           if (currentFrame >= targetFrames) {
@@ -65,7 +65,7 @@ export default function Home() {
 
         video.onseeked = () => {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          extractedFrames.push(canvas.toDataURL('image/jpeg', 0.75));
+          extractedFrames.push(canvas.toDataURL('image/jpeg', 0.9));
           currentFrame++;
           seekNext();
         };
@@ -90,6 +90,8 @@ export default function Home() {
     });
 
     const canvas = canvasRef.current!;
+    canvas.width = tempVideo.videoWidth || 1280;
+    canvas.height = tempVideo.videoHeight || 720;
     const ctx = canvas.getContext('2d')!;
     const result = new Map<number, string>();
 
@@ -98,7 +100,7 @@ export default function Home() {
       await new Promise<void>(resolve => {
         tempVideo.onseeked = () => {
           ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-          result.set(time, canvas.toDataURL('image/jpeg', 0.85));
+          result.set(time, canvas.toDataURL('image/jpeg', 0.92));
           resolve();
         };
         tempVideo.currentTime = clampedTime;

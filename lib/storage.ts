@@ -20,6 +20,7 @@ export interface VerificationItem {
   confidence: 'high' | 'medium' | 'low';
   observation: string;
   revisedCorrection: string | null;
+  revisedTimeRef?: number | null;
 }
 
 export interface VerificationResult {
