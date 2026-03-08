@@ -3,52 +3,54 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ProgressChart from '@/components/ProgressChart';
-import { SessionRecord, Exercise } from '@/lib/storage';
-
-const EXERCISES: { value: Exercise; label: string }[] = [
-  { value: 'muscle_up', label: 'Muscle Up' },
-  { value: 'pull_up', label: 'Pull Up' },
-  { value: 'push_up', label: 'Push Up' },
-  { value: 'dip', label: 'Dip' },
-  { value: 'planche', label: 'Planche' },
-  { value: 'l_sit', label: 'L-Sit' },
-];
+import { SessionRecord } from '@/lib/storage';
 
 export default function HistoryPage() {
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | 'all'>('all');
+  const [selectedExercise, setSelectedExercise] = useState<string>('all');
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [allSessions, setAllSessions] = useState<SessionRecord[]>([]);
   const [chartSessions, setChartSessions] = useState<SessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchSessions(); }, [selectedExercise]);
+  useEffect(() => { fetchSessions(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (allSessions.length === 0) return;
+    const filtered = selectedExercise === 'all'
+      ? allSessions
+      : allSessions.filter(s => s.exercise === selectedExercise);
+    setSessions(filtered);
+    setChartSessions([...filtered].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    ));
+  }, [selectedExercise, allSessions]);
 
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      const url = selectedExercise === 'all'
-        ? '/api/history'
-        : `/api/history?exercise=${selectedExercise}`;
-      const res = await fetch(url);
+      const res = await fetch('/api/history');
       const data = await res.json();
-      setSessions(data.sessions || []);
+      const all: SessionRecord[] = data.sessions || [];
+      setAllSessions(all);
 
-      // For chart: sort chronologically
-      const sorted = [...(data.sessions || [])].sort(
-        (a: SessionRecord, b: SessionRecord) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      const filtered = selectedExercise === 'all'
+        ? all
+        : all.filter(s => s.exercise === selectedExercise);
+      setSessions(filtered);
+
+      const sorted = [...filtered].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
       );
       setChartSessions(sorted);
     } catch {
       setSessions([]);
+      setAllSessions([]);
       setChartSessions([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const exerciseLabel = (ex: Exercise) =>
-    EXERCISES.find(e => e.value === ex)?.label || ex;
 
   const avgScore = sessions.length > 0
     ? (sessions.reduce((s, r) => s + r.score, 0) / sessions.length).toFixed(1)
@@ -93,17 +95,17 @@ export default function HistoryPage() {
           >
             Todos
           </button>
-          {EXERCISES.map(ex => (
+          {Array.from(new Set(allSessions.map(s => s.exercise))).sort().map(ex => (
             <button
-              key={ex.value}
-              onClick={() => setSelectedExercise(ex.value)}
+              key={ex}
+              onClick={() => setSelectedExercise(ex)}
               className={`text-xs font-mono py-1.5 px-3 rounded border transition-all ${
-                selectedExercise === ex.value
+                selectedExercise === ex
                   ? 'border-violet-500 bg-violet-500/10 text-violet-300'
                   : 'border-gray-700 text-gray-400 hover:border-gray-600'
               }`}
             >
-              {ex.label}
+              {ex}
             </button>
           ))}
         </div>
@@ -146,11 +148,11 @@ export default function HistoryPage() {
             {selectedExercise !== 'all' && chartSessions.length > 0 && (
               <div className="border border-gray-800 rounded-lg p-4">
                 <h2 className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-4">
-                  Progresión — {exerciseLabel(selectedExercise as Exercise)}
+                  Progresión — {selectedExercise}
                 </h2>
                 <ProgressChart
                   sessions={chartSessions}
-                  exercise={exerciseLabel(selectedExercise as Exercise)}
+                  exercise={selectedExercise}
                 />
               </div>
             )}
@@ -170,7 +172,7 @@ export default function HistoryPage() {
                   <div className={`text-lg font-mono ${(latestSession.improvement ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {(latestSession.improvement ?? 0) > 0 ? '+' : ''}{latestSession.improvement?.toFixed(1)}
                   </div>
-                  <div className="text-xs text-gray-500">{exerciseLabel(latestSession.exercise)}</div>
+                  <div className="text-xs text-gray-500">{latestSession.exercise}</div>
                 </div>
               </div>
             )}
@@ -199,7 +201,7 @@ export default function HistoryPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-white font-medium">
-                        {exerciseLabel(session.exercise)}
+                        {session.exercise}
                       </div>
                       <div className="text-xs text-gray-500 font-mono truncate">
                         {new Date(session.date).toLocaleString('es')} · {session.analysisData.phase}

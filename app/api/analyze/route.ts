@@ -6,15 +6,6 @@ export const maxDuration = 60;
 
 const genai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
-const EXERCISE_LABELS: Record<Exercise, string> = {
-  muscle_up: 'Muscle Up',
-  pull_up: 'Pull Up / Dominadas',
-  push_up: 'Push Up / Flexiones',
-  dip: 'Dip / Fondos',
-  planche: 'Planche / Plancha',
-  l_sit: 'L-Sit',
-};
-
 const ANALYSIS_PROMPT = (exerciseLabel: string, duration: number) => `\
 Eres un coach elite de calistenia con más de 15 años analizando biomecánica del movimiento. \
 Analiza este video de ${exerciseLabel} con el máximo rigor técnico.
@@ -120,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const videoFile = formData.get('video') as File | null;
-    const exercise = (formData.get('exercise') as Exercise) ?? 'muscle_up';
+    const exercise = (formData.get('exercise') as Exercise) || 'ejercicio';
     const videoDuration = parseFloat(formData.get('videoDuration') as string) || 10;
     const framesJson = formData.get('framesJson') as string | null;
     const framesData: string[] = framesJson ? JSON.parse(framesJson) : [];
@@ -131,9 +122,8 @@ export async function POST(req: NextRequest) {
 
     const mimeType = videoFile.type || 'video/mp4';
     const videoBuffer = await videoFile.arrayBuffer();
-    const exerciseLabel = EXERCISE_LABELS[exercise] || exercise;
 
-    const rawText = await analyzeWithGemini(videoBuffer, mimeType, exerciseLabel, videoDuration);
+    const rawText = await analyzeWithGemini(videoBuffer, mimeType, exercise, videoDuration);
 
     let analysisData;
     try {
@@ -142,7 +132,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to parse Gemini response', raw: rawText }, { status: 500 });
     }
 
-    const summary = analysisData.positives?.[0]?.text || `${exerciseLabel} analysis`;
+    const summary = analysisData.positives?.[0]?.text || `${exercise} analysis`;
     const session = saveSession({
       exercise,
       date: new Date().toISOString(),

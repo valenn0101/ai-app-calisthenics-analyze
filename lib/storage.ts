@@ -2,13 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import * as XLSX from 'xlsx';
 
-export type Exercise =
-  | 'muscle_up'
-  | 'pull_up'
-  | 'push_up'
-  | 'dip'
-  | 'planche'
-  | 'l_sit';
+export type Exercise = string;
 
 export interface AnalysisResult {
   score: number;
@@ -41,7 +35,7 @@ export interface SessionRecord {
   score: number;
   summary: string;
   shareText: string;
-  framesData: string[]; // base64 frames for history display
+  framesData: string[];
   analysisData: AnalysisResult;
   previousScore?: number;
   improvement?: number;
@@ -87,7 +81,6 @@ export function saveSession(session: Omit<SessionRecord, 'id' | 'previousScore' 
   };
 
   sessions.push(newSession);
-
   fs.writeFileSync(JSON_PATH, JSON.stringify(sessions, null, 2), 'utf-8');
 
   try {
@@ -119,33 +112,20 @@ function writeExcel(sessions: SessionRecord[]) {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
-
   ws['!cols'] = [
-    { wch: 24 }, // ID
-    { wch: 14 }, // Exercise
-    { wch: 22 }, // Date
-    { wch: 8 },  // Score
-    { wch: 13 }, // PreviousScore
-    { wch: 12 }, // Improvement
-    { wch: 16 }, // Phase
-    { wch: 40 }, // Summary
-    { wch: 60 }, // Positives
-    { wch: 80 }, // Corrections
-    { wch: 60 }, // Cues
-    { wch: 60 }, // NextSteps
-    { wch: 80 }, // ShareText
-    { wch: 10 }, // FrameCount
+    { wch: 24 }, { wch: 14 }, { wch: 22 }, { wch: 8 },
+    { wch: 13 }, { wch: 12 }, { wch: 16 }, { wch: 40 },
+    { wch: 60 }, { wch: 80 }, { wch: 60 }, { wch: 60 },
+    { wch: 80 }, { wch: 10 },
   ];
-
   XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
 
   const exercises = Array.from(new Set(sessions.map(s => s.exercise)));
   for (const ex of exercises) {
     const exRows = rows.filter(r => r.Exercise === ex);
     const exWs = XLSX.utils.json_to_sheet(exRows);
-    XLSX.utils.book_append_sheet(wb, exWs, ex.replace('_', ' '));
+    XLSX.utils.book_append_sheet(wb, exWs, ex.slice(0, 31));
   }
-
   XLSX.writeFile(wb, EXCEL_PATH);
 }
 

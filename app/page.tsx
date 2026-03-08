@@ -5,22 +5,13 @@ import Link from 'next/link';
 import FrameStrip from '@/components/FrameStrip';
 import AnalysisResult from '@/components/AnalysisResult';
 import SharePanel from '@/components/SharePanel';
-import { Exercise, AnalysisResult as AnalysisResultType, VerificationResult } from '@/lib/storage';
-
-const EXERCISES: { value: Exercise; label: string }[] = [
-  { value: 'muscle_up', label: 'Muscle Up' },
-  { value: 'pull_up', label: 'Pull Up' },
-  { value: 'push_up', label: 'Push Up' },
-  { value: 'dip', label: 'Dip' },
-  { value: 'planche', label: 'Planche' },
-  { value: 'l_sit', label: 'L-Sit' },
-];
+import { AnalysisResult as AnalysisResultType, VerificationResult } from '@/lib/storage';
 
 type AppState = 'idle' | 'extracting' | 'analyzing' | 'done' | 'error';
-type VerifyState = 'idle' | 'capturing' | 'verifying' | 'done' | 'error';
+type VerifyState = 'idle' | 'verifying' | 'done' | 'error';
 
 export default function Home() {
-  const [exercise, setExercise] = useState<Exercise>('muscle_up');
+  const [exercise, setExercise] = useState<string>('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [frames, setFrames] = useState<string[]>([]);
@@ -33,7 +24,6 @@ export default function Home() {
   const [activePanel, setActivePanel] = useState<'analysis' | 'share'>('analysis');
   const [videoSrc, setVideoSrc] = useState<string>('');
 
-  // timeRef verification state
   const [timeRefFrames, setTimeRefFrames] = useState<Map<number, string>>(new Map());
   const [verifyState, setVerifyState] = useState<VerifyState>('idle');
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
@@ -75,8 +65,7 @@ export default function Home() {
 
         video.onseeked = () => {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          extractedFrames.push(dataUrl);
+          extractedFrames.push(canvas.toDataURL('image/jpeg', 0.75));
           currentFrame++;
           seekNext();
         };
@@ -87,7 +76,7 @@ export default function Home() {
     });
   }, []);
 
-  // Capture frames at specific timestamps from the original video file
+  // Capture frames at exact timeRef timestamps using the original video file
   const captureFramesAtTimes = useCallback(async (times: number[]): Promise<Map<number, string>> => {
     if (!videoFile || times.length === 0) return new Map();
 
@@ -146,7 +135,7 @@ export default function Home() {
   };
 
   const handleAnalyze = async () => {
-    if (!videoFile) return;
+    if (!videoFile || !exercise.trim()) return;
     setAppState('analyzing');
     setError('');
     setAnalysis(null);
@@ -157,7 +146,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append('video', videoFile);
-      formData.append('exercise', exercise);
+      formData.append('exercise', exercise.trim());
       formData.append('videoDuration', videoDuration.toString());
       formData.append('framesJson', JSON.stringify(frames));
 
@@ -172,28 +161,35 @@ export default function Home() {
       });
       setAppState('done');
 
-      // Auto-highlight frames in FrameStrip closest to timeRef timestamps
-      const refs = new Set<number>();
+      // Collect all unique timeRef values
       const allTimeRefs: number[] = [];
+      const seen = new Set<number>();
+      const collect = (items: { timeRef?: number | null }[]) => {
+        items?.forEach(item => {
+          if (item.timeRef != null && !seen.has(item.timeRef)) {
+            seen.add(item.timeRef);
+            allTimeRefs.push(item.timeRef);
+          }
+        });
+      };
+      collect(data.analysisData.positives ?? []);
+      collect(data.analysisData.corrections ?? []);
 
-      data.analysisData.positives?.forEach((p: { timeRef?: number | null }) => {
-        if (p.timeRef != null) allTimeRefs.push(p.timeRef);
-      });
-      data.analysisData.corrections?.forEach((c: { timeRef?: number | null }) => {
-        if (c.timeRef != null) allTimeRefs.push(c.timeRef);
-      });
-
-      // Map timeRef seconds → closest frame index for FrameStrip highlighting
+      // Highlight closest frame in FrameStrip for each timeRef
       if (frames.length > 0 && videoDuration > 0) {
+        const refs = new Set<number>();
         for (const t of allTimeRefs) {
-          const idx = Math.round((t / videoDuration) * (frames.length - 1));
-          refs.add(Math.min(idx, frames.length - 1));
+          const idx = Math.min(
+            Math.round((t / videoDuration) * (frames.length - 1)),
+            frames.length - 1
+          );
+          refs.add(idx);
         }
+        setHighlightedFrames(refs);
+        setSelectedFrames(refs);
       }
-      setHighlightedFrames(refs);
-      setSelectedFrames(refs);
 
-      // Capture exact timeRef frames for thumbnails
+      // Capture exact frames at timeRef timestamps for thumbnails
       if (allTimeRefs.length > 0) {
         const captured = await captureFramesAtTimes(allTimeRefs);
         setTimeRefFrames(captured);
@@ -207,7 +203,6 @@ export default function Home() {
   const handleVerify = async () => {
     if (!analysis || timeRefFrames.size === 0) return;
 
-    // Only verify corrections that have a timeRef and a captured frame
     const correctionsWithFrame = analysis.corrections.filter(
       c => c.timeRef != null && timeRefFrames.has(c.timeRef)
     );
@@ -219,7 +214,6 @@ export default function Home() {
 
     try {
       const framesArr = correctionsWithFrame.map(c => timeRefFrames.get(c.timeRef!)!);
-      const exerciseLabel = EXERCISES.find(e => e.value === exercise)?.label || exercise;
 
       const res = await fetch('/api/verify', {
         method: 'POST',
@@ -227,7 +221,7 @@ export default function Home() {
         body: JSON.stringify({
           frames: framesArr,
           corrections: correctionsWithFrame,
-          exercise: exerciseLabel,
+          exercise: exercise.trim(),
         }),
       });
       const data = await res.json();
@@ -257,11 +251,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#060609] text-white">
-      {/* Hidden video + canvas for frame extraction */}
       <video ref={videoRef} className="hidden" muted playsInline />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Header */}
       <header className="border-b border-gray-800">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
@@ -280,28 +272,20 @@ export default function Home() {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-        {/* Upload + Exercise Selection */}
+        {/* Upload + Exercise */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Exercise Selector */}
+          {/* Exercise input */}
           <div>
             <label className="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
               Ejercicio
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {EXERCISES.map(ex => (
-                <button
-                  key={ex.value}
-                  onClick={() => setExercise(ex.value)}
-                  className={`text-xs font-mono py-2 px-2 rounded border transition-all ${
-                    exercise === ex.value
-                      ? 'border-violet-500 bg-violet-500/10 text-violet-300'
-                      : 'border-gray-700 text-gray-400 hover:border-gray-600'
-                  }`}
-                >
-                  {ex.label}
-                </button>
-              ))}
-            </div>
+            <input
+              type="text"
+              value={exercise}
+              onChange={e => setExercise(e.target.value)}
+              placeholder="ej: Muscle Up, Pull Up, Planche..."
+              className="w-full bg-transparent border border-gray-700 rounded px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-violet-500 transition-colors"
+            />
           </div>
 
           {/* Video Upload */}
@@ -325,9 +309,7 @@ export default function Home() {
                 className="hidden"
               />
               {appState === 'extracting' ? (
-                <div className="text-sm text-gray-400 font-mono animate-pulse">
-                  Extrayendo frames...
-                </div>
+                <div className="text-sm text-gray-400 font-mono animate-pulse">Extrayendo frames...</div>
               ) : frames.length > 0 ? (
                 <div className="text-sm text-violet-400 font-mono">
                   ✓ {frames.length} frames · {videoDuration.toFixed(1)}s
@@ -360,9 +342,9 @@ export default function Home() {
         {frames.length > 0 && (
           <button
             onClick={handleAnalyze}
-            disabled={isLoading}
+            disabled={isLoading || !exercise.trim()}
             className={`w-full py-3 px-6 rounded font-mono font-bold text-sm transition-all ${
-              isLoading
+              isLoading || !exercise.trim()
                 ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                 : 'bg-violet-600 hover:bg-violet-500 text-white'
             }`}
@@ -385,7 +367,6 @@ export default function Home() {
         {/* Analysis + Share */}
         {analysis && appState === 'done' && (
           <div className="border border-gray-800 rounded-lg overflow-hidden">
-            {/* Tabs */}
             <div className="flex border-b border-gray-800">
               {(['analysis', 'share'] as const).map(panel => (
                 <button
@@ -407,7 +388,7 @@ export default function Home() {
                 <>
                   <AnalysisResult
                     data={analysis}
-                    exercise={EXERCISES.find(e => e.value === exercise)?.label || exercise}
+                    exercise={exercise}
                     timeRefFrames={timeRefFrames}
                     verificationResult={verificationResult}
                     improvement={sessionMeta?.improvement}
