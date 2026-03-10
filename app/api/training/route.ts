@@ -3,29 +3,39 @@ import { getUsername } from '@/lib/auth';
 import { getRoutines, saveRoutine } from '@/lib/training';
 
 export async function GET() {
-  const username = getUsername();
-  if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  return NextResponse.json({ routines: getRoutines(username) });
+  try {
+    const username = getUsername();
+    if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    return NextResponse.json({ routines: getRoutines(username) });
+  } catch (e) {
+    console.error('GET /api/training error:', e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const username = getUsername();
-  if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  try {
+    const username = getUsername();
+    if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-  const body = await req.json();
-  if (!body.name || !body.days?.length) {
-    return NextResponse.json({ error: 'name y days requeridos' }, { status: 400 });
+    const body = await req.json();
+    if (!body.name || !body.days?.length) {
+      return NextResponse.json({ error: 'name y days requeridos' }, { status: 400 });
+    }
+
+    const routine = saveRoutine(username, {
+      name: body.name,
+      weekCount: body.weekCount ?? 4,
+      hasDeload: body.hasDeload ?? false,
+      deloadPercentage: body.deloadPercentage ?? 50,
+      days: body.days,
+      oneRMs: body.oneRMs ?? {},
+      startDate: body.startDate ?? new Date().toISOString().split('T')[0],
+    });
+
+    return NextResponse.json({ routine });
+  } catch (e) {
+    console.error('POST /api/training error:', e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error al guardar' }, { status: 500 });
   }
-
-  const routine = saveRoutine(username, {
-    name: body.name,
-    weekCount: body.weekCount ?? 4,
-    hasDeload: body.hasDeload ?? false,
-    deloadPercentage: body.deloadPercentage ?? 50,
-    days: body.days,
-    oneRMs: body.oneRMs ?? {},
-    startDate: body.startDate ?? new Date().toISOString().split('T')[0],
-  });
-
-  return NextResponse.json({ routine });
 }
