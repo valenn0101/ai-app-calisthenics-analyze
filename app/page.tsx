@@ -277,6 +277,12 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2">
             <Link
+              href="/training"
+              className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
+            >
+              Rutinas
+            </Link>
+            <Link
               href="/chats"
               className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
             >
