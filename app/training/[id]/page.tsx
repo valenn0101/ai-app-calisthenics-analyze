@@ -19,6 +19,28 @@ const scoreColor = (kg: number, prev: number) =>
   kg > prev ? 'text-emerald-400' : kg < prev ? 'text-red-400' : 'text-gray-400';
 
 
+// Average max weight across non-deload weeks for a given exerciseId
+function avgWeightForExercise(exerciseId: string, weekLogs: WeekLog[]): number | null {
+  const maxPerWeek: number[] = [];
+  for (const log of weekLogs) {
+    if (log.isDeload) continue;
+    let weekMax = 0;
+    for (const day of log.days) {
+      for (const block of day.blocks) {
+        for (const ex of block.exercises) {
+          if (ex.exerciseId !== exerciseId) continue;
+          for (const s of ex.sets) {
+            if (s.completed && s.weight > weekMax) weekMax = s.weight;
+          }
+        }
+      }
+    }
+    if (weekMax > 0) maxPerWeek.push(weekMax);
+  }
+  if (maxPerWeek.length === 0) return null;
+  return maxPerWeek.reduce((a, b) => a + b, 0) / maxPerWeek.length;
+}
+
 function buildEmptyDayLog(routine: Routine, dayId: string, prevDayLog?: DayLog): DayLog {
   const day = routine.days.find(d => d.id === dayId)!;
   return {
@@ -331,11 +353,17 @@ export default function RoutinePage() {
                                         <div className="text-[9px] font-mono text-amber-400">
                                           ~{weeklyEstimate(oneRM, 5, selectedWeek, routine.weekCount)}kg × 5r
                                         </div>
-                                        {isDeloadWeek(selectedWeek) && (
-                                          <div className="text-[9px] font-mono text-sky-400">
-                                            Desc: ~{Math.round(oneRM * (routine.deloadPercentage / 100) / 2.5) * 2.5}kg
-                                          </div>
-                                        )}
+                                        {isDeloadWeek(selectedWeek) && (() => {
+                                          const base = avgWeightForExercise(ex.id, weekLogs) ?? oneRM;
+                                          const suggested = Math.round(base * (routine.deloadPercentage / 100) / 2.5) * 2.5;
+                                          const fromAvg = avgWeightForExercise(ex.id, weekLogs) !== null;
+                                          return (
+                                            <div className="text-[9px] font-mono text-sky-400">
+                                              Desc: ~{suggested}kg
+                                              <span className="text-gray-600 ml-1">({fromAvg ? `prom ${Math.round(base)}kg` : `1RM`})</span>
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     )}
                                   </div>
