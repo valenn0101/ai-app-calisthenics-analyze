@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
-import { saveSession, Exercise } from '@/lib/storage';
-import { getUsername } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
+import { saveSession, Exercise } from "@/lib/storage";
+import { getUsername } from "@/lib/auth";
 
 export const maxDuration = 60;
 
@@ -70,7 +70,10 @@ Reglas estrictas:
 - priority "low" = detalle de refinamiento técnico`;
 
 function parseJson(raw: string) {
-  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const cleaned = raw
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
   return JSON.parse(cleaned);
 }
 
@@ -84,73 +87,96 @@ async function analyzeWithGemini(
 
   const uploadedFile = await genai.files.upload({
     file: blob,
-    config: { mimeType, displayName: 'formcheck-video' },
+    config: { mimeType, displayName: "formcheck-video" },
   });
 
   let fileInfo = await genai.files.get({ name: uploadedFile.name! });
   let attempts = 0;
-  while (fileInfo.state === 'PROCESSING' && attempts < 30) {
-    await new Promise(r => setTimeout(r, 1500));
+  while (fileInfo.state === "PROCESSING" && attempts < 30) {
+    await new Promise((r) => setTimeout(r, 1500));
     fileInfo = await genai.files.get({ name: uploadedFile.name! });
     attempts++;
   }
 
-  if (fileInfo.state !== 'ACTIVE') {
+  if (fileInfo.state !== "ACTIVE") {
     await genai.files.delete({ name: uploadedFile.name! }).catch(() => {});
     throw new Error(`Gemini file not ready (state: ${fileInfo.state})`);
   }
 
-  let rawText = '';
+  let rawText = "";
   try {
     const response = await genai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
-      contents: [{
-        role: 'user',
-        parts: [
-          { fileData: { mimeType: fileInfo.mimeType!, fileUri: fileInfo.uri! } },
-          { text: ANALYSIS_PROMPT(exerciseLabel, videoDuration) },
-        ],
-      }],
+      model: "gemini-3.1-pro-preview",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              fileData: {
+                mimeType: fileInfo.mimeType!,
+                fileUri: fileInfo.uri!,
+              },
+            },
+            { text: ANALYSIS_PROMPT(exerciseLabel, videoDuration) },
+          ],
+        },
+      ],
     });
-    rawText = response.text ?? '';
+    rawText = response.text ?? "";
   } finally {
     await genai.files.delete({ name: uploadedFile.name! }).catch(() => {});
   }
 
-  if (!rawText) throw new Error('No text response from Gemini');
+  if (!rawText) throw new Error("No text response from Gemini");
   return rawText;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const username = getUsername();
-    if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    if (!username)
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
     if (!process.env.GOOGLE_API_KEY) {
-      return NextResponse.json({ error: 'GOOGLE_API_KEY not configured' }, { status: 500 });
+      return NextResponse.json(
+        { error: "GOOGLE_API_KEY not configured" },
+        { status: 500 },
+      );
     }
 
     const formData = await req.formData();
-    const videoFile = formData.get('video') as File | null;
-    const exercise = (formData.get('exercise') as Exercise) || 'ejercicio';
-    const videoDuration = parseFloat(formData.get('videoDuration') as string) || 10;
-    const framesJson = formData.get('framesJson') as string | null;
+    const videoFile = formData.get("video") as File | null;
+    const exercise = (formData.get("exercise") as Exercise) || "ejercicio";
+    const videoDuration =
+      parseFloat(formData.get("videoDuration") as string) || 10;
+    const framesJson = formData.get("framesJson") as string | null;
     const framesData: string[] = framesJson ? JSON.parse(framesJson) : [];
 
     if (!videoFile) {
-      return NextResponse.json({ error: 'No video file provided' }, { status: 400 });
+      return NextResponse.json(
+        { error: "No video file provided" },
+        { status: 400 },
+      );
     }
 
-    const mimeType = videoFile.type || 'video/mp4';
+    const mimeType = videoFile.type || "video/mp4";
     const videoBuffer = await videoFile.arrayBuffer();
 
-    const rawText = await analyzeWithGemini(videoBuffer, mimeType, exercise, videoDuration);
+    const rawText = await analyzeWithGemini(
+      videoBuffer,
+      mimeType,
+      exercise,
+      videoDuration,
+    );
 
     let analysisData;
     try {
       analysisData = parseJson(rawText);
     } catch {
-      return NextResponse.json({ error: 'Failed to parse Gemini response', raw: rawText }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to parse Gemini response", raw: rawText },
+        { status: 500 },
+      );
     }
 
     const summary = analysisData.positives?.[0]?.text || `${exercise} analysis`;
@@ -159,32 +185,41 @@ export async function POST(req: NextRequest) {
     let aiSummary: string | undefined;
     try {
       const summaryRes = await genai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: [{
-          role: 'user',
-          parts: [{ text: `En 2-3 oraciones, resume el desempeño de este atleta en ${exercise}. Puntaje: ${analysisData.score}/10. Principal corrección: ${analysisData.corrections?.[0]?.text ?? 'ninguna'}. Punto positivo: ${analysisData.positives?.[0]?.text ?? 'ninguno'}. Sé directo y específico.` }],
-        }],
+        model: 'gemini-3.1-pro-preview"',
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `En 2-3 oraciones, resume el desempeño de este atleta en ${exercise}. Puntaje: ${analysisData.score}/10. Principal corrección: ${analysisData.corrections?.[0]?.text ?? "ninguna"}. Punto positivo: ${analysisData.positives?.[0]?.text ?? "ninguno"}. Sé directo y específico.`,
+              },
+            ],
+          },
+        ],
       });
       aiSummary = summaryRes.text?.trim() ?? undefined;
     } catch {
       // non-critical, continue without it
     }
 
-    const session = await saveSession({
-      exercise,
-      date: new Date().toISOString(),
-      score: analysisData.score,
-      summary,
-      aiSummary,
-      shareText: analysisData.shareText,
-      framesData,
-      analysisData,
-    }, username);
+    const session = await saveSession(
+      {
+        exercise,
+        date: new Date().toISOString(),
+        score: analysisData.score,
+        summary,
+        aiSummary,
+        shareText: analysisData.shareText,
+        framesData,
+        analysisData,
+      },
+      username,
+    );
 
     return NextResponse.json({ session, analysisData });
   } catch (error: unknown) {
-    console.error('Analysis error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error("Analysis error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
