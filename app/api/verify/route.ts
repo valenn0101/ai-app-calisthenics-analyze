@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { VerificationResult } from '@/lib/storage';
+import { MODEL_VERIFY } from '@/lib/models';
 
 export const maxDuration = 60;
 
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
     }
 
     const response = await genai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: MODEL_VERIFY,
       contents: [{
         role: 'user',
         parts: [

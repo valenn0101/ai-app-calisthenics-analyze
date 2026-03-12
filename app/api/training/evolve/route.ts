@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getUsername } from "@/lib/auth";
 import { getRoutine, getRoutineWeekLogs } from "@/lib/training";
 import type { Routine, WeekLog } from "@/lib/training-types";
+import { MODEL_EVOLVE } from "@/lib/models";
 
 export const maxDuration = 60;
 
@@ -109,7 +110,7 @@ Genera una rutina EVOLUCIONADA para el próximo mes. La rutina debe:
 Devuelve SOLO el texto de la rutina nueva, sin JSON, sin títulos extra, sin explicaciones. Empezá directamente con el primer día.`;
 
     const response = await genai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: MODEL_EVOLVE,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { saveSession, Exercise } from "@/lib/storage";
+import { MODEL_ANALYZE } from "@/lib/models";
 import { getUsername } from "@/lib/auth";
 
 export const maxDuration = 60;
@@ -106,7 +107,7 @@ async function analyzeWithGemini(
   let rawText = "";
   try {
     const response = await genai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: MODEL_ANALYZE,
       contents: [
         {
           role: "user",
@@ -185,7 +186,7 @@ export async function POST(req: NextRequest) {
     let aiSummary: string | undefined;
     try {
       const summaryRes = await genai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: MODEL_ANALYZE,
         contents: [
           {
             role: "user",

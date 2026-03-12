@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getUsername } from "@/lib/auth";
 import { getRoutine, getRoutineWeekLogs } from "@/lib/training";
+import { MODEL_EVOLVE } from "@/lib/models";
 import type { Routine, WeekLog } from "@/lib/training-types";
 
 export const maxDuration = 60;
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
           }));
 
     const response = await genai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: MODEL_EVOLVE,
       config: { systemInstruction },
       contents,
     });

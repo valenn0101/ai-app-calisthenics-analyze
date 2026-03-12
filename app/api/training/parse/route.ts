@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { getUsername } from '@/lib/auth';
+import { MODEL_PARSE } from '@/lib/models';
 import { RoutineDay, MuscleGroup, BlockType } from '@/lib/training';
 
 export const maxDuration = 60;
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 
   const response = await genai.models.generateContent({
-    model: 'gemini-3.1-pro-preview',
+    model: MODEL_PARSE,
     contents: [{ role: 'user', parts: [{ text: PARSE_PROMPT(text) }] }],
   });
 
