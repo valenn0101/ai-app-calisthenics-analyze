@@ -1,16 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, getUserId } from './supabase';
 export type { GoalCategory, Goal } from './goals-types';
 export { GOAL_CATEGORY_LABELS } from './goals-types';
 import type { GoalCategory, Goal } from './goals-types';
 
-async function getUserId(username: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('users')
-    .select('id')
-    .eq('username', username)
-    .single();
-  return data?.id ?? null;
-}
 
 function rowToGoal(row: Record<string, unknown>): Goal {
   return {

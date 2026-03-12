@@ -24,3 +24,12 @@ export const supabase = new Proxy({} as SupabaseClient, {
     return (getSupabase() as SupabaseClient)[prop as keyof SupabaseClient];
   },
 });
+
+export async function getUserId(username: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('id')
+    .eq('username', username)
+    .single();
+  return data?.id ?? null;
+}

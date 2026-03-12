@@ -12,9 +12,3 @@ export function getUsername(): string | null {
   }
 }
 
-// Kept for backwards compat — returns minimal object from cookie only
-export function getUser(): { username: string; displayName: string } | null {
-  const username = getUsername();
-  if (!username) return null;
-  return { username, displayName: username };
-}

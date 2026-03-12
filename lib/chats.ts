@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, getUserId } from './supabase';
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -15,14 +15,6 @@ export interface SavedChat {
   messageCount: number;
 }
 
-async function getUserId(username: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('users')
-    .select('id')
-    .eq('username', username)
-    .single();
-  return data?.id ?? null;
-}
 
 function rowToChat(row: Record<string, unknown>): SavedChat {
   return {
@@ -78,10 +70,6 @@ export async function getAllChats(username: string): Promise<SavedChat[]> {
     .order('created_at', { ascending: false });
 
   return (data ?? []).map(rowToChat);
-}
-
-export async function readChats(username: string): Promise<SavedChat[]> {
-  return getAllChats(username);
 }
 
 export async function deleteChat(username: string, chatId: string): Promise<boolean> {

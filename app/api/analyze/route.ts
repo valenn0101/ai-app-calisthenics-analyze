@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
     let aiSummary: string | undefined;
     try {
       const summaryRes = await genai.models.generateContent({
-        model: 'gemini-3.1-pro-preview"',
+        model: "gemini-2.0-flash",
         contents: [
           {
             role: "user",
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
           },
         ],
       });
-      aiSummary = summaryRes.text?.trim() ?? undefined;
+      aiSummary = summaryRes.text?.trim();
     } catch {
       // non-critical, continue without it
     }
@@ -205,7 +205,6 @@ export async function POST(req: NextRequest) {
     const session = await saveSession(
       {
         exercise,
-        date: new Date().toISOString(),
         score: analysisData.score,
         summary,
         aiSummary,

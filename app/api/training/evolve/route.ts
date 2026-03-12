@@ -61,14 +61,16 @@ export async function POST(req: NextRequest) {
       goals: string;
     };
 
-    const routine = await getRoutine(username, routineId);
+    const [routine, logs] = await Promise.all([
+      getRoutine(username, routineId),
+      getRoutineWeekLogs(username, routineId),
+    ]);
     if (!routine)
       return NextResponse.json(
         { error: "Rutina no encontrada" },
         { status: 404 },
       );
 
-    const logs = await getRoutineWeekLogs(username, routineId);
     const performanceSummary = buildPerformanceSummary(routine, logs);
 
     const routineSource =

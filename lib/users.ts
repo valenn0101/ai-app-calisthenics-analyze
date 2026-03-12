@@ -2,7 +2,6 @@ import { supabase } from './supabase';
 
 export interface User {
   username: string;
-  password: string;
   displayName: string;
 }
 
@@ -16,5 +15,5 @@ export async function verifyCredentials(username: string, password: string): Pro
   if (error || !data) return null;
   if (data.password !== password) return null;
 
-  return { username: data.username, password: data.password, displayName: data.display_name };
+  return { username: data.username, displayName: data.display_name };
 }

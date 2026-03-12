@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, getUserId } from './supabase';
 
 export type Exercise = string;
 
@@ -43,14 +43,6 @@ export interface SessionRecord {
 
 // ── Internal helpers ───────────────────────────────────────────────────────────
 
-async function getUserId(username: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('users')
-    .select('id')
-    .eq('username', username)
-    .single();
-  return data?.id ?? null;
-}
 
 function rowToSession(row: Record<string, unknown>): SessionRecord {
   return {
@@ -71,7 +63,7 @@ function rowToSession(row: Record<string, unknown>): SessionRecord {
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 export async function saveSession(
-  session: Omit<SessionRecord, 'id' | 'previousScore' | 'improvement'>,
+  session: Omit<SessionRecord, 'id' | 'date' | 'previousScore' | 'improvement'>,
   username: string
 ): Promise<SessionRecord> {
   const userId = await getUserId(username);
@@ -136,8 +128,4 @@ export async function getSessionsByExercise(exercise: Exercise, username: string
     .order('created_at', { ascending: true });
 
   return (data ?? []).map(rowToSession);
-}
-
-export async function readSessions(username: string): Promise<SessionRecord[]> {
-  return getAllSessions(username);
 }

@@ -1,18 +1,10 @@
-import { supabase } from './supabase';
+import { supabase, getUserId } from './supabase';
 
 export * from './training-types';
 import { Routine, WeekLog, MuscleVolume } from './training-types';
 
 // ── Internal helpers ───────────────────────────────────────────────────────────
 
-async function getUserId(username: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('users')
-    .select('id')
-    .eq('username', username)
-    .single();
-  return data?.id ?? null;
-}
 
 function rowToRoutine(row: Record<string, unknown>): Routine {
   return {
