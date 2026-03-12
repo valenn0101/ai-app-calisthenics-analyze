@@ -11,6 +11,19 @@ export const MUSCLE_LABELS: Record<MuscleGroup, string> = {
   other: 'Otro',
 };
 
+export type BlockType = 'strength' | 'power' | 'hypertrophy' | 'accessory' | 'skill' | 'conditioning' | 'warmup' | 'other';
+
+export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
+  strength: 'Fuerza',
+  power: 'Potencia',
+  hypertrophy: 'Hipertrofia',
+  accessory: 'Accesorio',
+  skill: 'Habilidad',
+  conditioning: 'Acondicionamiento',
+  warmup: 'Calentamiento',
+  other: 'General',
+};
+
 export interface RoutineExercise {
   id: string;
   name: string;
@@ -23,6 +36,7 @@ export interface RoutineExercise {
 export interface RoutineBlock {
   id: string;
   label: string;
+  blockType: BlockType;
   exercises: RoutineExercise[];
   isSuperset: boolean;
   restNotes: string;

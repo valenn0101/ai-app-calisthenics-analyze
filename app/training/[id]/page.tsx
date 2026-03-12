@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   Routine, WeekLog, DayLog, BlockLog, ExerciseLog, SetEntry,
   MUSCLE_LABELS, MuscleGroup, estimateWeight, weeklyEstimate, parseSetsCount, MuscleVolume,
+  BLOCK_TYPE_LABELS, BlockType,
 } from '@/lib/training-types';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -303,6 +304,11 @@ export default function RoutinePage() {
                               <span className="text-[10px] font-mono text-gray-500 uppercase">
                                 {block.label ? `Bloque ${block.label}` : 'Bloque'}{block.isSuperset ? ' · Superserie' : ''}
                               </span>
+                              {block.blockType && block.blockType !== 'other' && (
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-white/[0.08] text-gray-600 bg-white/[0.03]">
+                                  {BLOCK_TYPE_LABELS[block.blockType as BlockType]}
+                                </span>
+                              )}
                             </div>
 
                             {block.exercises.map((ex, ei) => {

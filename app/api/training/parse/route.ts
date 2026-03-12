@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { getUsername } from '@/lib/auth';
-import { RoutineDay, MuscleGroup } from '@/lib/training';
+import { RoutineDay, MuscleGroup, BlockType } from '@/lib/training';
 
 export const maxDuration = 60;
 
@@ -25,6 +25,7 @@ Estructura exacta requerida:
         {
           "id": "block-${uid()}",
           "label": "1",
+          "blockType": "strength",
           "isSuperset": false,
           "restNotes": "Descanso amplio",
           "exercises": [
@@ -45,6 +46,16 @@ Estructura exacta requerida:
 
 Reglas:
 - muscleGroup: "push" (press banca, press militar, fondos, dips), "pull" (dominadas, remo, bíceps), "legs" (sentadilla, peso muerto, zancadas), "core" (L-sit, leg raises, rueda abdominal), "skill" (muscle up, planche, front lever, technische habilidades), "other"
+- blockType: clasifica el tipo de bloque:
+  "strength"       → 1-5 reps, alta intensidad, orientado a fuerza máxima/SNC
+  "power"          → explosividad, pliometría, velocidad de ejecución
+  "hypertrophy"    → 6-15 reps, volumen moderado-alto, tiempo bajo tensión
+  "accessory"      → ejercicios de apoyo, trabajo aislado, corrección de debilidades
+  "skill"          → habilidad técnica (MU, planche, front lever, isométricos de skill)
+  "conditioning"   → circuitos, AMRAP, densidad de trabajo cardiovascular
+  "warmup"         → activación, movilidad, calentamiento previo
+  "other"          → bloques mixtos o que no encajan en otra categoría
+  Si el texto tiene etiqueta [FUERZA]/[HIPERTROFIA]/[ACCESORIO]/etc., úsala directamente.
 - isProgressive: true si el ejercicio tipicamente usa carga externa que puede progresar semana a semana (press banca, dominadas lastradas, sentadillas, fondos lastrados, remo). false para skill work, isométricos, calentamiento
 - isSuperset: true solo si el bloque contiene 2+ ejercicios realizados consecutivamente sin descanso entre ellos
 - label: número o letra del bloque según el texto. Si no hay, usa índice
@@ -90,6 +101,7 @@ export async function POST(req: NextRequest) {
     blocks: (day.blocks ?? []).map((block, bi) => ({
       ...block,
       id: block.id || `block-${di}-${bi}-${uid()}`,
+      blockType: (block.blockType as BlockType) || 'other',
       exercises: (block.exercises ?? []).map((ex, ei) => ({
         ...ex,
         id: ex.id || `ex-${di}-${bi}-${ei}-${uid()}`,
