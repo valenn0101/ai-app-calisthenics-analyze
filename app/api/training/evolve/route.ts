@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { getUsername } from '@/lib/auth';
 import { getRoutine, getRoutineWeekLogs } from '@/lib/training';
+import type { Routine, WeekLog } from '@/lib/training-types';
 
 export const maxDuration = 60;
 
 const genai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
-function buildPerformanceSummary(routine: ReturnType<typeof getRoutine>, logs: ReturnType<typeof getRoutineWeekLogs>): string {
-  if (!routine || !logs.length) return 'Sin registros previos.';
+function buildPerformanceSummary(routine: Routine, logs: WeekLog[]): string {
+  if (!logs.length) return 'Sin registros previos.';
 
   const lines: string[] = [];
 
@@ -47,10 +48,10 @@ export async function POST(req: NextRequest) {
 
     const { routineId, goals } = await req.json() as { routineId: string; goals: string };
 
-    const routine = getRoutine(username, routineId);
+    const routine = await getRoutine(username, routineId);
     if (!routine) return NextResponse.json({ error: 'Rutina no encontrada' }, { status: 404 });
 
-    const logs = getRoutineWeekLogs(username, routineId);
+    const logs = await getRoutineWeekLogs(username, routineId);
     const performanceSummary = buildPerformanceSummary(routine, logs);
 
     const routineSource = routine.rawText || routine.days.map(day =>
@@ -81,7 +82,7 @@ Genera una rutina EVOLUCIONADA para el próximo mes. La rutina debe:
 Devuelve SOLO el texto de la rutina nueva, sin JSON, sin títulos extra, sin explicaciones. Empezá directamente con el primer día.`;
 
     const response = await genai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-2.5-pro-preview-03-25',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 

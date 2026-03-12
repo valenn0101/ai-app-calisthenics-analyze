@@ -16,6 +16,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No hay mensajes para guardar' }, { status: 400 });
   }
 
-  const saved = saveChat(username, exercise || 'ejercicio', score ?? 0, messages);
+  const saved = await saveChat(username, exercise || 'ejercicio', score ?? 0, messages);
   return NextResponse.json({ chat: saved });
 }

@@ -1,113 +1,213 @@
-import fs from 'fs';
-import path from 'path';
+import { supabase } from './supabase';
 
 export * from './training-types';
 import { Routine, WeekLog, MuscleVolume } from './training-types';
 
-// ── File paths ─────────────────────────────────────────────────────────────────
+// ── Internal helpers ───────────────────────────────────────────────────────────
 
-function userDir(username: string) {
-  return path.join(process.cwd(), 'data', 'users', username);
+async function getUserId(username: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('id')
+    .eq('username', username)
+    .single();
+  return data?.id ?? null;
 }
-function ensureDir(username: string) {
-  const d = userDir(username);
-  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-}
-function routinesPath(username: string) { return path.join(userDir(username), 'routines.json'); }
-function weekLogsPath(username: string) { return path.join(userDir(username), 'weeklogs.json'); }
 
-function readJson<T>(p: string): T[] {
-  if (!fs.existsSync(p)) return [];
-  try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return []; }
+function rowToRoutine(row: Record<string, unknown>): Routine {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    weekCount: row.week_count as number,
+    hasDeload: (row.has_deload as boolean) ?? false,
+    deloadPercentage: (row.deload_percentage as number) ?? 50,
+    startDate: row.start_date as string,
+    days: (row.days as Routine['days']) ?? [],
+    oneRMs: (row.one_rms as Record<string, number>) ?? {},
+    rawText: (row.raw_text as string) ?? undefined,
+    createdAt: row.created_at as string,
+  };
 }
-function writeJson(p: string, data: unknown) {
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
+
+function rowToWeekLog(row: Record<string, unknown>): WeekLog {
+  return {
+    id: row.id as string,
+    routineId: row.routine_id as string,
+    weekNumber: row.week_number as number,
+    isDeload: (row.is_deload as boolean) ?? false,
+    days: (row.days as WeekLog['days']) ?? [],
+    createdAt: row.created_at as string,
+  };
 }
 
 // ── Routine CRUD ───────────────────────────────────────────────────────────────
 
-export function getRoutines(username: string): Routine[] {
-  ensureDir(username);
-  return readJson<Routine>(routinesPath(username));
+export async function getRoutines(username: string): Promise<Routine[]> {
+  const userId = await getUserId(username);
+  if (!userId) return [];
+
+  const { data } = await supabase
+    .from('routines')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  return (data ?? []).map(rowToRoutine);
 }
 
-export function getRoutine(username: string, routineId: string): Routine | null {
-  return getRoutines(username).find(r => r.id === routineId) ?? null;
+export async function getRoutine(username: string, routineId: string): Promise<Routine | null> {
+  const userId = await getUserId(username);
+  if (!userId) return null;
+
+  const { data } = await supabase
+    .from('routines')
+    .select('*')
+    .eq('id', routineId)
+    .eq('user_id', userId)
+    .single();
+
+  return data ? rowToRoutine(data) : null;
 }
 
-export function saveRoutine(
+export async function saveRoutine(
   username: string,
   data: Omit<Routine, 'id' | 'createdAt'>
-): Routine {
-  ensureDir(username);
-  const routines = getRoutines(username);
-  const routine: Routine = {
-    ...data,
-    id: `rt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    createdAt: new Date().toISOString(),
-  };
-  routines.unshift(routine);
-  writeJson(routinesPath(username), routines);
-  return routine;
+): Promise<Routine> {
+  const userId = await getUserId(username);
+  if (!userId) throw new Error(`User not found: ${username}`);
+
+  const { data: row, error } = await supabase
+    .from('routines')
+    .insert({
+      user_id: userId,
+      name: data.name,
+      week_count: data.weekCount,
+      has_deload: data.hasDeload,
+      deload_percentage: data.deloadPercentage,
+      start_date: data.startDate,
+      days: data.days,
+      one_rms: data.oneRMs,
+      raw_text: data.rawText ?? null,
+    })
+    .select()
+    .single();
+
+  if (error || !row) throw new Error(error?.message ?? 'Failed to save routine');
+  return rowToRoutine(row);
 }
 
-export function updateRoutine(username: string, routineId: string, patch: Partial<Routine>): boolean {
-  const routines = getRoutines(username);
-  const idx = routines.findIndex(r => r.id === routineId);
-  if (idx === -1) return false;
-  routines[idx] = { ...routines[idx], ...patch };
-  writeJson(routinesPath(username), routines);
-  return true;
+export async function updateRoutine(
+  username: string,
+  routineId: string,
+  patch: Partial<Routine>
+): Promise<boolean> {
+  const userId = await getUserId(username);
+  if (!userId) return false;
+
+  const update: Record<string, unknown> = {};
+  if (patch.name !== undefined) update.name = patch.name;
+  if (patch.weekCount !== undefined) update.week_count = patch.weekCount;
+  if (patch.hasDeload !== undefined) update.has_deload = patch.hasDeload;
+  if (patch.deloadPercentage !== undefined) update.deload_percentage = patch.deloadPercentage;
+  if (patch.startDate !== undefined) update.start_date = patch.startDate;
+  if (patch.days !== undefined) update.days = patch.days;
+  if (patch.oneRMs !== undefined) update.one_rms = patch.oneRMs;
+  if (patch.rawText !== undefined) update.raw_text = patch.rawText;
+
+  const { error } = await supabase
+    .from('routines')
+    .update(update)
+    .eq('id', routineId)
+    .eq('user_id', userId);
+
+  return !error;
 }
 
-export function deleteRoutine(username: string, routineId: string): boolean {
-  const routines = getRoutines(username);
-  const next = routines.filter(r => r.id !== routineId);
-  if (next.length === routines.length) return false;
-  writeJson(routinesPath(username), next);
-  const logs = getAllWeekLogs(username).filter(l => l.routineId !== routineId);
-  writeJson(weekLogsPath(username), logs);
-  return true;
+export async function deleteRoutine(username: string, routineId: string): Promise<boolean> {
+  const userId = await getUserId(username);
+  if (!userId) return false;
+
+  // week_logs cascade on delete via FK, no need to delete manually
+  const { error } = await supabase
+    .from('routines')
+    .delete()
+    .eq('id', routineId)
+    .eq('user_id', userId);
+
+  return !error;
 }
 
 // ── WeekLog CRUD ───────────────────────────────────────────────────────────────
 
-export function getAllWeekLogs(username: string): WeekLog[] {
-  ensureDir(username);
-  return readJson<WeekLog>(weekLogsPath(username));
+export async function getRoutineWeekLogs(username: string, routineId: string): Promise<WeekLog[]> {
+  const userId = await getUserId(username);
+  if (!userId) return [];
+
+  const { data } = await supabase
+    .from('week_logs')
+    .select('*')
+    .eq('routine_id', routineId)
+    .eq('user_id', userId)
+    .order('week_number', { ascending: true });
+
+  return (data ?? []).map(rowToWeekLog);
 }
 
-export function getRoutineWeekLogs(username: string, routineId: string): WeekLog[] {
-  return getAllWeekLogs(username)
-    .filter(l => l.routineId === routineId)
-    .sort((a, b) => a.weekNumber - b.weekNumber);
+export async function getWeekLog(
+  username: string,
+  routineId: string,
+  weekNumber: number
+): Promise<WeekLog | null> {
+  const userId = await getUserId(username);
+  if (!userId) return null;
+
+  const { data } = await supabase
+    .from('week_logs')
+    .select('*')
+    .eq('routine_id', routineId)
+    .eq('user_id', userId)
+    .eq('week_number', weekNumber)
+    .single();
+
+  return data ? rowToWeekLog(data) : null;
 }
 
-export function getWeekLog(username: string, routineId: string, weekNumber: number): WeekLog | null {
-  return getAllWeekLogs(username).find(
-    l => l.routineId === routineId && l.weekNumber === weekNumber
-  ) ?? null;
-}
-
-export function saveWeekLog(
+export async function saveWeekLog(
   username: string,
   data: Omit<WeekLog, 'id' | 'createdAt'>
-): WeekLog {
-  ensureDir(username);
-  const logs = getAllWeekLogs(username);
-  const existingIdx = logs.findIndex(
-    l => l.routineId === data.routineId && l.weekNumber === data.weekNumber
-  );
+): Promise<WeekLog> {
+  const userId = await getUserId(username);
+  if (!userId) throw new Error(`User not found: ${username}`);
 
-  const log: WeekLog = {
-    ...data,
-    id: existingIdx >= 0 ? logs[existingIdx].id : `wl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    createdAt: existingIdx >= 0 ? logs[existingIdx].createdAt : new Date().toISOString(),
-  };
+  const { data: row, error } = await supabase
+    .from('week_logs')
+    .upsert(
+      {
+        routine_id: data.routineId,
+        user_id: userId,
+        week_number: data.weekNumber,
+        is_deload: data.isDeload,
+        days: data.days,
+      },
+      { onConflict: 'routine_id,week_number' }
+    )
+    .select()
+    .single();
 
-  if (existingIdx >= 0) { logs[existingIdx] = log; } else { logs.push(log); }
-  writeJson(weekLogsPath(username), logs);
-  return log;
+  if (error || !row) throw new Error(error?.message ?? 'Failed to save week log');
+  return rowToWeekLog(row);
+}
+
+export async function getAllWeekLogs(username: string): Promise<WeekLog[]> {
+  const userId = await getUserId(username);
+  if (!userId) return [];
+
+  const { data } = await supabase
+    .from('week_logs')
+    .select('*')
+    .eq('user_id', userId);
+
+  return (data ?? []).map(rowToWeekLog);
 }
 
 // ── Volume ─────────────────────────────────────────────────────────────────────

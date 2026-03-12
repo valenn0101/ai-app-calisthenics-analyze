@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getUser } from '@/lib/auth';
+import { getUsername } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 export async function GET() {
-  const user = getUser();
-  if (!user) return NextResponse.json({ user: null }, { status: 401 });
-  return NextResponse.json({ user: { username: user.username, displayName: user.displayName } });
+  const username = getUsername();
+  if (!username) return NextResponse.json({ user: null }, { status: 401 });
+
+  const { data } = await supabase
+    .from('users')
+    .select('username, display_name')
+    .eq('username', username)
+    .single();
+
+  if (!data) return NextResponse.json({ user: null }, { status: 401 });
+
+  return NextResponse.json({
+    user: { username: data.username, displayName: data.display_name },
+  });
 }

@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const username = getUsername();
     if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    return NextResponse.json({ routines: getRoutines(username) });
+    return NextResponse.json({ routines: await getRoutines(username) });
   } catch (e) {
     console.error('GET /api/training error:', e);
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'name y days requeridos' }, { status: 400 });
     }
 
-    const routine = saveRoutine(username, {
+    const routine = await saveRoutine(username, {
       name: body.name,
       weekCount: body.weekCount ?? 4,
       hasDeload: body.hasDeload ?? false,
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       days: body.days,
       oneRMs: body.oneRMs ?? {},
       startDate: body.startDate ?? new Date().toISOString().split('T')[0],
+      rawText: body.rawText,
     });
 
     return NextResponse.json({ routine });

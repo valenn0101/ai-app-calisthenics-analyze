@@ -1,6 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-import * as XLSX from 'xlsx';
+import { supabase } from './supabase';
 
 export type Exercise = string;
 
@@ -35,6 +33,7 @@ export interface SessionRecord {
   date: string;
   score: number;
   summary: string;
+  aiSummary?: string;
   shareText: string;
   framesData: string[];
   analysisData: AnalysisResult;
@@ -42,110 +41,103 @@ export interface SessionRecord {
   improvement?: number;
 }
 
-function getUserDir(username: string): string {
-  return path.join(process.cwd(), 'data', 'users', username);
+// ── Internal helpers ───────────────────────────────────────────────────────────
+
+async function getUserId(username: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('id')
+    .eq('username', username)
+    .single();
+  return data?.id ?? null;
 }
 
-function getJsonPath(username: string): string {
-  return path.join(getUserDir(username), 'sessions.json');
+function rowToSession(row: Record<string, unknown>): SessionRecord {
+  return {
+    id: row.id as string,
+    exercise: row.exercise as string,
+    date: row.created_at as string,
+    score: row.score as number,
+    summary: (row.summary as string) ?? '',
+    aiSummary: (row.ai_summary as string) ?? undefined,
+    shareText: (row.share_text as string) ?? '',
+    framesData: (row.frames_data as string[]) ?? [],
+    analysisData: row.analysis_data as AnalysisResult,
+    previousScore: (row.previous_score as number) ?? undefined,
+    improvement: (row.improvement as number) ?? undefined,
+  };
 }
 
-function getExcelPath(username: string): string {
-  return path.join(getUserDir(username), 'sessions.xlsx');
-}
+// ── Public API ─────────────────────────────────────────────────────────────────
 
-function ensureUserDir(username: string) {
-  const dir = getUserDir(username);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-export function readSessions(username: string): SessionRecord[] {
-  ensureUserDir(username);
-  const p = getJsonPath(username);
-  if (!fs.existsSync(p)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(p, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
-
-export function saveSession(
+export async function saveSession(
   session: Omit<SessionRecord, 'id' | 'previousScore' | 'improvement'>,
   username: string
-): SessionRecord {
-  ensureUserDir(username);
-  const sessions = readSessions(username);
+): Promise<SessionRecord> {
+  const userId = await getUserId(username);
+  if (!userId) throw new Error(`User not found: ${username}`);
 
-  const previousSessions = sessions
-    .filter(s => s.exercise === session.exercise)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Fetch previous score for this exercise
+  const { data: prev } = await supabase
+    .from('sessions')
+    .select('score')
+    .eq('user_id', userId)
+    .eq('exercise', session.exercise)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
 
-  const previousScore = previousSessions.length > 0 ? previousSessions[0].score : undefined;
+  const previousScore = prev?.score ?? undefined;
   const improvement = previousScore !== undefined ? session.score - previousScore : undefined;
 
-  const newSession: SessionRecord = {
-    ...session,
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    previousScore,
-    improvement,
-  };
+  const { data, error } = await supabase
+    .from('sessions')
+    .insert({
+      user_id: userId,
+      exercise: session.exercise,
+      score: session.score,
+      previous_score: previousScore ?? null,
+      improvement: improvement ?? null,
+      summary: session.summary,
+      ai_summary: session.aiSummary ?? null,
+      share_text: session.shareText,
+      frames_data: session.framesData,
+      analysis_data: session.analysisData,
+    })
+    .select()
+    .single();
 
-  sessions.push(newSession);
-  fs.writeFileSync(getJsonPath(username), JSON.stringify(sessions, null, 2), 'utf-8');
-
-  try {
-    writeExcel(sessions, username);
-  } catch {
-    // Excel write may fail if file is open
-  }
-
-  return newSession;
+  if (error || !data) throw new Error(error?.message ?? 'Failed to save session');
+  return rowToSession(data);
 }
 
-function writeExcel(sessions: SessionRecord[], username: string) {
-  const rows = sessions.map(s => ({
-    ID: s.id,
-    Exercise: s.exercise,
-    Date: s.date,
-    Score: s.score,
-    PreviousScore: s.previousScore ?? '',
-    Improvement: s.improvement !== undefined ? (s.improvement > 0 ? `+${s.improvement}` : `${s.improvement}`) : '',
-    Phase: s.analysisData.phase,
-    Summary: s.summary,
-    Positives: s.analysisData.positives.map(p => p.text).join(' | '),
-    Corrections: s.analysisData.corrections.map(c => `[${c.priority.toUpperCase()}${c.timeRef != null ? ` @${c.timeRef}s` : ''}] ${c.text}`).join(' | '),
-    Cues: s.analysisData.cues.join(' | '),
-    NextSteps: s.analysisData.nextSteps.join(' | '),
-    ShareText: s.shareText,
-    FrameCount: s.framesData.length,
-  }));
+export async function getAllSessions(username: string): Promise<SessionRecord[]> {
+  const userId = await getUserId(username);
+  if (!userId) return [];
 
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [
-    { wch: 24 }, { wch: 14 }, { wch: 22 }, { wch: 8 },
-    { wch: 13 }, { wch: 12 }, { wch: 16 }, { wch: 40 },
-    { wch: 60 }, { wch: 80 }, { wch: 60 }, { wch: 60 },
-    { wch: 80 }, { wch: 10 },
-  ];
-  XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+  const { data } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
-  const exercises = Array.from(new Set(sessions.map(s => s.exercise)));
-  for (const ex of exercises) {
-    const exRows = rows.filter(r => r.Exercise === ex);
-    const exWs = XLSX.utils.json_to_sheet(exRows);
-    XLSX.utils.book_append_sheet(wb, exWs, ex.slice(0, 31));
-  }
-  XLSX.writeFile(wb, getExcelPath(username));
+  return (data ?? []).map(rowToSession);
 }
 
-export function getSessionsByExercise(exercise: Exercise, username: string): SessionRecord[] {
-  return readSessions(username)
-    .filter(s => s.exercise === exercise)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+export async function getSessionsByExercise(exercise: Exercise, username: string): Promise<SessionRecord[]> {
+  const userId = await getUserId(username);
+  if (!userId) return [];
+
+  const { data } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('exercise', exercise)
+    .order('created_at', { ascending: true });
+
+  return (data ?? []).map(rowToSession);
 }
 
-export function getAllSessions(username: string): SessionRecord[] {
-  return readSessions(username).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+export async function readSessions(username: string): Promise<SessionRecord[]> {
+  return getAllSessions(username);
 }

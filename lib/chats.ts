@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { supabase } from './supabase';
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -16,63 +15,84 @@ export interface SavedChat {
   messageCount: number;
 }
 
-function getUserChatsPath(username: string): string {
-  return path.join(process.cwd(), 'data', 'users', username, 'chats.json');
+async function getUserId(username: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('id')
+    .eq('username', username)
+    .single();
+  return data?.id ?? null;
 }
 
-function ensureDir(username: string) {
-  const dir = path.join(process.cwd(), 'data', 'users', username);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+function rowToChat(row: Record<string, unknown>): SavedChat {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    exercise: (row.exercise as string) ?? '',
+    score: (row.score as number) ?? 0,
+    date: row.created_at as string,
+    messages: (row.messages as ChatMessage[]) ?? [],
+    messageCount: (row.message_count as number) ?? 0,
+  };
 }
 
-export function readChats(username: string): SavedChat[] {
-  ensureDir(username);
-  const p = getUserChatsPath(username);
-  if (!fs.existsSync(p)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(p, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
-
-export function saveChat(
+export async function saveChat(
   username: string,
   exercise: string,
   score: number,
   messages: ChatMessage[]
-): SavedChat {
-  ensureDir(username);
-  const chats = readChats(username);
+): Promise<SavedChat> {
+  const userId = await getUserId(username);
+  if (!userId) throw new Error(`User not found: ${username}`);
 
   const firstUserMsg = messages.find(m => m.role === 'user')?.content ?? '';
   const title = firstUserMsg.length > 50
     ? firstUserMsg.slice(0, 47) + '...'
     : firstUserMsg || `${exercise} · conversación`;
 
-  const saved: SavedChat = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    title,
-    exercise,
-    score,
-    date: new Date().toISOString(),
-    messages,
-    messageCount: messages.length,
-  };
+  const { data, error } = await supabase
+    .from('chats')
+    .insert({
+      user_id: userId,
+      title,
+      exercise,
+      score,
+      messages,
+      message_count: messages.length,
+    })
+    .select()
+    .single();
 
-  chats.unshift(saved);
-  fs.writeFileSync(getUserChatsPath(username), JSON.stringify(chats, null, 2), 'utf-8');
-  return saved;
+  if (error || !data) throw new Error(error?.message ?? 'Failed to save chat');
+  return rowToChat(data);
 }
 
-export function deleteChat(username: string, chatId: string): boolean {
-  const chats = readChats(username);
-  const next = chats.filter(c => c.id !== chatId);
-  if (next.length === chats.length) return false;
-  fs.writeFileSync(getUserChatsPath(username), JSON.stringify(next, null, 2), 'utf-8');
-  return true;
+export async function getAllChats(username: string): Promise<SavedChat[]> {
+  const userId = await getUserId(username);
+  if (!userId) return [];
+
+  const { data } = await supabase
+    .from('chats')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  return (data ?? []).map(rowToChat);
 }
 
-export function getAllChats(username: string): SavedChat[] {
-  return readChats(username);
+export async function readChats(username: string): Promise<SavedChat[]> {
+  return getAllChats(username);
+}
+
+export async function deleteChat(username: string, chatId: string): Promise<boolean> {
+  const userId = await getUserId(username);
+  if (!userId) return false;
+
+  const { error } = await supabase
+    .from('chats')
+    .delete()
+    .eq('id', chatId)
+    .eq('user_id', userId);
+
+  return !error;
 }

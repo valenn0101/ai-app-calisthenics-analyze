@@ -7,10 +7,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     const username = getUsername();
     if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-    const routine = getRoutine(username, params.id);
+    const routine = await getRoutine(username, params.id);
     if (!routine) return NextResponse.json({ error: 'Rutina no encontrada' }, { status: 404 });
 
-    const logs = getRoutineWeekLogs(username, params.id);
+    const logs = await getRoutineWeekLogs(username, params.id);
 
     const weekVolumes: Array<{ weekNumber: number; isDeload: boolean; volume: MuscleVolume }> = logs.map(log => ({
       weekNumber: log.weekNumber,

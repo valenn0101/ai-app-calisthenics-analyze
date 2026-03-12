@@ -1,17 +1,20 @@
+import { supabase } from './supabase';
+
 export interface User {
   username: string;
   password: string;
   displayName: string;
 }
 
-export const USERS: User[] = [
-  { username: 'valentin', password: '997', displayName: 'Valentín' },
-];
+export async function verifyCredentials(username: string, password: string): Promise<User | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('username, password, display_name')
+    .ilike('username', username)
+    .single();
 
-export function verifyCredentials(username: string, password: string): User | null {
-  return (
-    USERS.find(
-      u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-    ) ?? null
-  );
+  if (error || !data) return null;
+  if (data.password !== password) return null;
+
+  return { username: data.username, password: data.password, displayName: data.display_name };
 }

@@ -5,7 +5,7 @@ import { getAllChats, deleteChat } from '@/lib/chats';
 export async function GET() {
   const username = getUsername();
   if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  return NextResponse.json({ chats: getAllChats(username) });
+  return NextResponse.json({ chats: await getAllChats(username) });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -16,6 +16,6 @@ export async function DELETE(req: NextRequest) {
   const chatId = searchParams.get('id');
   if (!chatId) return NextResponse.json({ error: 'id requerido' }, { status: 400 });
 
-  const ok = deleteChat(username, chatId);
+  const ok = await deleteChat(username, chatId);
   return NextResponse.json({ ok });
 }

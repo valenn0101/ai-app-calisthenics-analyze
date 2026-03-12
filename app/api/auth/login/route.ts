@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Usuario y contraseña requeridos' }, { status: 400 });
     }
 
-    const user = verifyCredentials(username, password);
+    const user = await verifyCredentials(username, password);
     if (!user) {
       return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 });
     }

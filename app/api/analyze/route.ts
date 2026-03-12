@@ -154,11 +154,28 @@ export async function POST(req: NextRequest) {
     }
 
     const summary = analysisData.positives?.[0]?.text || `${exercise} analysis`;
-    const session = saveSession({
+
+    // Generate concise ai_summary for later comparison
+    let aiSummary: string | undefined;
+    try {
+      const summaryRes = await genai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          role: 'user',
+          parts: [{ text: `En 2-3 oraciones, resume el desempeño de este atleta en ${exercise}. Puntaje: ${analysisData.score}/10. Principal corrección: ${analysisData.corrections?.[0]?.text ?? 'ninguna'}. Punto positivo: ${analysisData.positives?.[0]?.text ?? 'ninguno'}. Sé directo y específico.` }],
+        }],
+      });
+      aiSummary = summaryRes.text?.trim() ?? undefined;
+    } catch {
+      // non-critical, continue without it
+    }
+
+    const session = await saveSession({
       exercise,
       date: new Date().toISOString(),
       score: analysisData.score,
       summary,
+      aiSummary,
       shareText: analysisData.shareText,
       framesData,
       analysisData,

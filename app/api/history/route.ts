@@ -10,10 +10,10 @@ export async function GET(req: NextRequest) {
   const exercise = searchParams.get('exercise') as Exercise | null;
 
   if (exercise) {
-    const sessions = getSessionsByExercise(exercise, username);
+    const sessions = await getSessionsByExercise(exercise, username);
     return NextResponse.json({ sessions });
   }
 
-  const sessions = getAllSessions(username);
+  const sessions = await getAllSessions(username);
   return NextResponse.json({ sessions });
 }

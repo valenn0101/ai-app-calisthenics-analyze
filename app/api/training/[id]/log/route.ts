@@ -11,11 +11,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const week = searchParams.get('week');
 
     if (week) {
-      const log = getWeekLog(username, params.id, parseInt(week));
+      const log = await getWeekLog(username, params.id, parseInt(week));
       return NextResponse.json({ log: log ?? null });
     }
 
-    const logs = getRoutineWeekLogs(username, params.id);
+    const logs = await getRoutineWeekLogs(username, params.id);
     return NextResponse.json({ logs });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!username) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
     const body = await req.json();
-    const log = saveWeekLog(username, {
+    const log = await saveWeekLog(username, {
       routineId: params.id,
       weekNumber: body.weekNumber,
       isDeload: body.isDeload ?? false,
