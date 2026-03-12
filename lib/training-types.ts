@@ -45,6 +45,7 @@ export interface Routine {
   oneRMs: Record<string, number>;
   createdAt: string;
   startDate: string;
+  rawText?: string;   // original free-text the user wrote
 }
 
 export interface SetEntry {
