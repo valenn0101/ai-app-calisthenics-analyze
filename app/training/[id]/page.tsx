@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import NavBar from '@/components/NavBar';
 import {
   Routine, WeekLog, DayLog, BlockLog, ExerciseLog, SetEntry,
   MUSCLE_LABELS, MuscleGroup, estimateWeight, weeklyEstimate, parseSetsCount, MuscleVolume,
@@ -16,7 +17,14 @@ function formatDate(iso: string) {
 }
 
 const scoreColor = (kg: number, prev: number) =>
-  kg > prev ? 'text-emerald-400' : kg < prev ? 'text-red-400' : 'text-gray-400';
+  kg > prev ? 'text-emerald-400' : kg < prev ? 'text-rose-400' : 'text-[var(--muted)]';
+
+const BLOCK_ACCENT: Record<string, { border: string; label: string; badge: string }> = {
+  power:    { border: 'border-l-2 border-indigo-500', label: 'text-indigo-400', badge: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
+  maxStr:   { border: 'border-l-2 border-rose-500',   label: 'text-rose-400',   badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
+  hyper:    { border: 'border-l-2 border-emerald-500', label: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  other:    { border: 'border-l-2 border-zinc-600',   label: 'text-[var(--muted)]',  badge: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' },
+};
 
 
 // Average max weight across non-deload weeks for a given exerciseId
@@ -109,17 +117,23 @@ export default function RoutinePage() {
   }, [view, loadProgress]);
 
   if (loading) return (
-    <main className="min-h-screen bg-[#0C0C10] flex items-center justify-center">
-      <span className="text-gray-600 text-xs font-mono animate-pulse">Cargando...</span>
-    </main>
+    <div className="min-h-screen bg-background">
+      <NavBar />
+      <div className="flex items-center justify-center h-[60vh]">
+        <span className="text-[var(--muted)] text-xs font-mono animate-pulse">Cargando...</span>
+      </div>
+    </div>
   );
   if (!routine) return (
-    <main className="min-h-screen bg-[#0C0C10] flex items-center justify-center">
-      <div className="text-center space-y-3">
-        <p className="text-gray-500 text-sm">Rutina no encontrada</p>
-        <Link href="/training" className="text-xs font-mono text-gray-600 hover:text-white">← Volver</Link>
+    <div className="min-h-screen bg-background">
+      <NavBar />
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center space-y-3">
+          <p className="text-[var(--muted)] text-sm">Rutina no encontrada</p>
+          <Link href="/training" className="text-xs font-mono text-[var(--muted)] hover:text-foreground">← Volver</Link>
+        </div>
       </div>
-    </main>
+    </div>
   );
 
   const totalWeeks = routine.weekCount + (routine.hasDeload ? 1 : 0);
@@ -216,27 +230,24 @@ export default function RoutinePage() {
   const prevDayLog = (dayId: string) => prevWeekLog?.days.find(d => d.dayId === dayId);
 
   return (
-    <main className="min-h-screen bg-[#0C0C10] text-white">
-      {/* Header */}
-      <header className="border-b border-white/[0.07]">
-        <div className="max-w-4xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <Link href="/training" className="text-[11px] font-mono text-gray-600 hover:text-white border border-white/[0.07] px-3 py-1.5 rounded-lg transition-all flex-shrink-0">
-              ← Rutinas
-            </Link>
-            <div className="min-w-0">
-              <div className="text-xs text-gray-500 font-mono truncate">{routine.name}</div>
-              <div className="text-[10px] text-gray-700 font-mono">
-                {routine.weekCount} sem{routine.hasDeload ? ' + descarga' : ''} · inicio {formatDate(routine.startDate)}
-              </div>
-            </div>
+    <div className="min-h-screen bg-background">
+      <NavBar />
+
+      {/* Sub-header */}
+      <div className="border-b border-[var(--border-color)] bg-surface/50">
+        <div className="max-w-4xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground truncate">{routine.name}</p>
+            <p className="text-[10px] font-mono text-[var(--muted)]">
+              {routine.weekCount} sem{routine.hasDeload ? ' + descarga' : ''} · inicio {formatDate(routine.startDate)}
+            </p>
           </div>
-          <div className="flex gap-1 flex-shrink-0">
-            <button onClick={() => setView('week')} className={`text-[11px] font-mono px-3 py-1.5 rounded-lg border transition-all ${view === 'week' ? 'border-white/30 text-white' : 'border-white/[0.07] text-gray-600 hover:text-gray-300'}`}>Semanas</button>
-            <button onClick={() => setView('progress')} className={`text-[11px] font-mono px-3 py-1.5 rounded-lg border transition-all ${view === 'progress' ? 'border-white/30 text-white' : 'border-white/[0.07] text-gray-600 hover:text-gray-300'}`}>Progreso</button>
+          <div className="flex gap-1 flex-shrink-0 bg-surface-2 rounded-lg p-1">
+            <button onClick={() => setView('week')} className={`text-[11px] font-mono px-3 py-1.5 rounded-md transition-all ${view === 'week' ? 'bg-surface text-foreground shadow-sm' : 'text-[var(--muted)] hover:text-foreground'}`}>Semanas</button>
+            <button onClick={() => setView('progress')} className={`text-[11px] font-mono px-3 py-1.5 rounded-md transition-all ${view === 'progress' ? 'bg-surface text-foreground shadow-sm' : 'text-[var(--muted)] hover:text-foreground'}`}>Progreso</button>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-4xl mx-auto px-5 py-6 space-y-5">
 
@@ -254,8 +265,8 @@ export default function RoutinePage() {
                     key={w}
                     onClick={() => { setSelectedWeek(w); setActiveDayId(null); setDraftLog(null); }}
                     className={`flex-shrink-0 px-3 py-2 rounded-xl border text-xs font-mono transition-all ${selectedWeek === w
-                      ? isDeload ? 'bg-sky-500/20 border-sky-500/40 text-sky-300' : 'bg-white/[0.08] border-white/30 text-white'
-                      : 'border-white/[0.07] text-gray-600 hover:text-gray-300'
+                      ? isDeload ? 'bg-sky-500/20 border-sky-500/40 text-sky-300' : 'bg-surface border-emerald-500/40 text-foreground'
+                      : 'border-[var(--border-color)] text-[var(--muted)] hover:text-foreground'
                     }`}
                   >
                     <div>{isDeload ? 'Descarga' : `Sem ${w}`}</div>
@@ -283,51 +294,52 @@ export default function RoutinePage() {
               const prev = prevDayLog(day.id);
 
               return (
-                <div key={day.id} className="border border-white/[0.07] rounded-2xl bg-[#111116] overflow-hidden">
+                <div key={day.id} className={`rounded-2xl overflow-hidden border transition-colors ${dayLog?.completed ? 'border-emerald-500/20 bg-emerald-500/[0.03]' : 'border-[var(--border-color)] bg-surface'}`}>
                   {/* Day header */}
                   <button
                     onClick={() => openDay(day.id)}
-                    className="w-full text-left px-5 py-4 hover:bg-white/[0.02] transition-colors flex items-start justify-between gap-4"
+                    className="w-full text-left px-5 py-4 hover:bg-white/[0.02] dark:hover:bg-white/[0.02] hover:bg-black/[0.02] transition-colors flex items-start justify-between gap-4"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">{day.dayName}</div>
-                      <div className="text-sm text-white mt-0.5">{day.title}</div>
+                      <div className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">{day.dayName}</div>
+                      <div className="text-sm font-medium text-foreground mt-0.5">{day.title}</div>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {Array.from(new Set(day.blocks.flatMap(b => b.exercises.map(e => e.muscleGroup)))).map(mg => (
-                          <span key={mg} className="text-[9px] font-mono text-gray-500">{MUSCLE_LABELS[mg as MuscleGroup]}</span>
+                          <span key={mg} className="text-[9px] font-mono text-[var(--muted)]">{MUSCLE_LABELS[mg as MuscleGroup]}</span>
                         ))}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {dayLog?.completed && (
                         <div className="text-right">
-                          <div className="text-[10px] font-mono text-emerald-400">✓ Completado</div>
+                          <div className="text-[10px] font-mono text-emerald-500">✓ Completado</div>
                           {prev && (
-                            <div className="text-[9px] font-mono text-gray-600">
+                            <div className="text-[9px] font-mono text-[var(--muted)]">
                               {formatDate(dayLog.date)}
                             </div>
                           )}
                         </div>
                       )}
-                      <span className="text-gray-600 text-xs">{isActive ? '▴' : '▾'}</span>
+                      <span className="text-[var(--muted)] text-xs">{isActive ? '▴' : '▾'}</span>
                     </div>
                   </button>
 
                   {/* Inline day logger */}
                   {isActive && draftLog && (
-                    <div className="border-t border-white/[0.06] px-5 py-4 space-y-5">
+                    <div className="border-t border-[var(--border-color)] px-5 py-4 space-y-5">
                       {day.blocks.map((block, bi) => {
                         const blockLog = draftLog.blocks[bi];
+                        const blockType = block.blockType as BlockType | undefined;
+                        const accent = BLOCK_ACCENT[blockType ?? 'other'] ?? BLOCK_ACCENT.other;
                         return (
-                          <div key={block.id} className="space-y-3">
+                          <div key={block.id} className={`space-y-3 pl-3 ${accent.border}`}>
                             {/* Block header */}
                             <div className="flex items-center gap-2">
-                              <div className="w-0.5 h-4 bg-gray-700 rounded-full" />
-                              <span className="text-[10px] font-mono text-gray-500 uppercase">
+                              <span className={`text-[10px] font-mono uppercase tracking-widest ${accent.label}`}>
                                 {block.label ? `Bloque ${block.label}` : 'Bloque'}{block.isSuperset ? ' · Superserie' : ''}
                               </span>
                               {block.blockType && block.blockType !== 'other' && (
-                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-white/[0.08] text-gray-600 bg-white/[0.03]">
+                                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${accent.badge}`}>
                                   {BLOCK_TYPE_LABELS[block.blockType as BlockType]}
                                 </span>
                               )}
@@ -339,13 +351,17 @@ export default function RoutinePage() {
                               const prevExLog = prev?.blocks[bi]?.exercises[ei];
 
                               return (
-                                <div key={ex.id} className="space-y-2 pl-3">
+                                <div key={ex.id} className="space-y-2">
                                   {/* Exercise header */}
                                   <div className="flex items-start justify-between gap-2">
                                     <div>
-                                      <div className="text-sm text-gray-200">{ex.name}</div>
-                                      <div className="text-[9px] font-mono text-gray-600">{ex.setsScheme}</div>
-                                      {ex.notes && <div className="text-[9px] text-gray-700 mt-0.5 leading-relaxed">{ex.notes}</div>}
+                                      <p className="text-sm font-medium text-foreground">{ex.name}</p>
+                                      <p className="text-[9px] font-mono text-[var(--muted)]">{ex.setsScheme}</p>
+                                      {ex.notes && (
+                                        <div className="mt-1.5 bg-indigo-500/[0.06] border border-indigo-500/20 rounded-lg px-3 py-2">
+                                          <p className="text-[10px] text-indigo-400 leading-relaxed">{ex.notes}</p>
+                                        </div>
+                                      )}
                                     </div>
                                     {oneRM && ex.isProgressive && (
                                       <div className="text-right flex-shrink-0">
@@ -373,15 +389,15 @@ export default function RoutinePage() {
                                     {exLog.sets.map((set, si) => {
                                       const prevSet = prevExLog?.sets[si];
                                       return (
-                                        <div key={si} className="flex items-center gap-2">
+                                        <div key={si} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${set.completed ? 'bg-emerald-500/10 border border-emerald-500/20' : 'border border-transparent'}`}>
                                           {/* Complete checkbox */}
                                           <input
                                             type="checkbox"
                                             checked={set.completed}
                                             onChange={e => updateSet(bi, ei, si, { completed: e.target.checked })}
-                                            className="w-3.5 h-3.5 accent-emerald-400 flex-shrink-0"
+                                            className="w-4 h-4 accent-emerald-500 flex-shrink-0"
                                           />
-                                          <span className="text-[10px] font-mono text-gray-600 w-5 text-center">{si + 1}</span>
+                                          <span className="text-[10px] font-mono text-[var(--muted)] w-5 text-center">{si + 1}</span>
 
                                           {/* Weight */}
                                           <div className="flex items-center gap-1">
@@ -392,12 +408,12 @@ export default function RoutinePage() {
                                               value={set.weight || ''}
                                               onChange={e => updateSet(bi, ei, si, { weight: parseFloat(e.target.value) || 0 })}
                                               placeholder="0"
-                                              className="w-16 bg-white/[0.04] border border-white/[0.08] focus:border-white/[0.22] rounded-lg px-2 py-1.5 text-xs text-white text-center outline-none"
+                                              className={`w-16 bg-surface border border-[var(--border-color)] focus:border-zinc-400 rounded-lg px-2 py-2 text-sm text-center outline-none transition-colors ${set.completed ? 'text-emerald-400' : 'text-foreground'}`}
                                             />
-                                            <span className="text-[9px] font-mono text-gray-600">kg</span>
+                                            <span className="text-[9px] font-mono text-[var(--muted)]">kg</span>
                                           </div>
 
-                                          <span className="text-gray-700 text-xs">×</span>
+                                          <span className="text-[var(--muted)] text-xs">×</span>
 
                                           {/* Reps */}
                                           <input
@@ -406,7 +422,7 @@ export default function RoutinePage() {
                                             value={set.reps || ''}
                                             onChange={e => updateSet(bi, ei, si, { reps: parseInt(e.target.value) || 0 })}
                                             placeholder="0"
-                                            className="w-12 bg-white/[0.04] border border-white/[0.08] focus:border-white/[0.22] rounded-lg px-2 py-1.5 text-xs text-white text-center outline-none"
+                                            className={`w-12 bg-surface border border-[var(--border-color)] focus:border-zinc-400 rounded-lg px-2 py-2 text-sm text-center outline-none transition-colors ${set.completed ? 'text-emerald-400' : 'text-foreground'}`}
                                           />
 
                                           {/* Previous week reference */}
@@ -417,7 +433,7 @@ export default function RoutinePage() {
                                           )}
                                           {/* 1RM hint for this rep count */}
                                           {oneRM && ex.isProgressive && set.reps > 0 && (
-                                            <span className="text-[9px] font-mono text-gray-600 ml-auto">
+                                            <span className="text-[9px] font-mono text-[var(--muted)] ml-auto">
                                               ~{estimateWeight(oneRM, set.reps)}kg
                                             </span>
                                           )}
@@ -426,7 +442,7 @@ export default function RoutinePage() {
                                           {exLog.sets.length > 1 && (
                                             <button
                                               onClick={() => removeSet(bi, ei, si)}
-                                              className="text-gray-700 hover:text-red-400 text-xs ml-1 transition-colors"
+                                              className="text-[var(--muted)] hover:text-rose-400 text-xs ml-1 transition-colors"
                                             >✕</button>
                                           )}
                                         </div>
@@ -435,7 +451,7 @@ export default function RoutinePage() {
 
                                     <button
                                       onClick={() => addSet(bi, ei)}
-                                      className="text-[10px] font-mono text-gray-600 hover:text-white transition-colors pl-7"
+                                      className="text-[10px] font-mono text-[var(--muted)] hover:text-foreground transition-colors pl-2"
                                     >
                                       + Añadir set
                                     </button>
@@ -449,29 +465,29 @@ export default function RoutinePage() {
 
                       {/* Session notes */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-mono text-gray-600">Notas de la sesión</label>
+                        <label className="text-[10px] font-mono text-[var(--muted)]">Notas de la sesión</label>
                         <textarea
                           value={draftLog.notes}
                           onChange={e => setDraftLog(prev => prev ? { ...prev, notes: e.target.value } : prev)}
                           placeholder="Cómo te sentiste, ajustes, observaciones..."
                           rows={2}
-                          className="w-full bg-white/[0.03] border border-white/[0.07] focus:border-white/[0.15] rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-700 outline-none resize-none"
+                          className="w-full bg-surface border border-[var(--border-color)] focus:border-zinc-400 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-[var(--muted)] outline-none resize-none transition-colors"
                         />
                       </div>
 
                       <button
                         onClick={saveDay}
                         disabled={saving}
-                        className="w-full py-3 bg-white text-black text-sm font-medium rounded-xl hover:bg-gray-100 disabled:opacity-40 transition-all"
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium rounded-xl disabled:opacity-40 transition-all"
                       >
-                        {saving ? <span className="font-mono text-xs text-gray-500 animate-pulse">Guardando...</span> : 'Guardar sesión'}
+                        {saving ? <span className="font-mono text-xs animate-pulse">Guardando...</span> : 'Guardar sesión'}
                       </button>
                     </div>
                   )}
 
                   {/* Saved session summary (collapsed) */}
                   {!isActive && dayLog?.completed && (
-                    <div className="border-t border-white/[0.05] px-5 py-3">
+                    <div className="border-t border-emerald-500/20 px-5 py-3">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {day.blocks.flatMap((block, bi) =>
                           block.exercises.map((ex, ei) => {
@@ -484,12 +500,12 @@ export default function RoutinePage() {
 
                             return (
                               <div key={ex.id} className="space-y-0.5">
-                                <div className="text-[9px] font-mono text-gray-600 truncate">{ex.name}</div>
-                                <div className={`text-xs font-mono ${prevMax && maxW > 0 ? scoreColor(maxW, prevMax) : 'text-gray-300'}`}>
+                                <p className="text-[9px] font-mono text-[var(--muted)] truncate">{ex.name}</p>
+                                <p className={`text-xs font-mono ${prevMax && maxW > 0 ? scoreColor(maxW, prevMax) : 'text-foreground'}`}>
                                   {maxW > 0 ? `${maxW}kg` : 'BW'} · {completedSets.length} sets
-                                </div>
+                                </p>
                                 {prevMax && maxW > 0 && maxW !== prevMax && (
-                                  <div className="text-[9px] font-mono text-gray-600">ant: {prevMax}kg</div>
+                                  <p className="text-[9px] font-mono text-[var(--muted)]">ant: {prevMax}kg</p>
                                 )}
                               </div>
                             );
@@ -497,7 +513,7 @@ export default function RoutinePage() {
                         )}
                       </div>
                       {dayLog.notes && (
-                        <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">{dayLog.notes}</p>
+                        <p className="text-[10px] text-[var(--muted)] mt-2 leading-relaxed">{dayLog.notes}</p>
                       )}
                     </div>
                   )}
@@ -511,38 +527,38 @@ export default function RoutinePage() {
         {view === 'progress' && (
           <div className="space-y-5">
             {!progressData && (
-              <div className="text-center py-16 text-gray-600 text-xs font-mono animate-pulse">Cargando progreso...</div>
+              <div className="text-center py-16 text-[var(--muted)] text-xs font-mono animate-pulse">Cargando progreso...</div>
             )}
 
             {progressData && (
               <>
                 {/* Volume per muscle group per week */}
                 {progressData.weekVolumes.length > 0 && (
-                  <div className="border border-white/[0.07] rounded-2xl bg-[#111116] p-5">
-                    <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-4">Volumen por grupo muscular</div>
+                  <div className="border border-[var(--border-color)] rounded-2xl bg-surface p-5">
+                    <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest mb-4">Volumen por grupo muscular</p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="border-b border-white/[0.06]">
-                            <th className="text-left font-mono text-gray-600 py-2 pr-4 text-[10px]">Músculo</th>
+                          <tr className="border-b border-[var(--border-color)]">
+                            <th className="text-left font-mono text-[var(--muted)] py-2 pr-4 text-[10px]">Músculo</th>
                             {progressData.weekVolumes.map(wv => (
-                              <th key={wv.weekNumber} className="text-right font-mono text-gray-600 py-2 px-2 text-[10px]">
+                              <th key={wv.weekNumber} className="text-right font-mono text-[var(--muted)] py-2 px-2 text-[10px]">
                                 {wv.isDeload ? 'Desc' : `S${wv.weekNumber}`}
                               </th>
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/[0.04]">
+                        <tbody className="divide-y divide-[var(--border-color)]">
                           {(['push', 'pull', 'legs', 'core', 'skill', 'other'] as const).map(mg => {
                             const vals = progressData.weekVolumes.map(wv => wv.volume[mg]);
                             if (vals.every(v => v === 0)) return null;
                             return (
                               <tr key={mg}>
-                                <td className="font-mono text-gray-400 py-2 pr-4 text-[10px]">{MUSCLE_LABELS[mg]}</td>
+                                <td className="font-mono text-[var(--muted)] py-2 pr-4 text-[10px]">{MUSCLE_LABELS[mg]}</td>
                                 {vals.map((v, i) => {
                                   const prev = i > 0 ? vals[i - 1] : null;
                                   return (
-                                    <td key={i} className={`text-right py-2 px-2 font-mono text-[10px] ${prev !== null && v !== prev ? scoreColor(v, prev) : 'text-gray-300'}`}>
+                                    <td key={i} className={`text-right py-2 px-2 font-mono text-[10px] ${prev !== null && v !== prev ? scoreColor(v, prev) : 'text-foreground'}`}>
                                       {v > 0 ? `${v.toLocaleString()}` : '—'}
                                     </td>
                                   );
@@ -553,15 +569,15 @@ export default function RoutinePage() {
                         </tbody>
                       </table>
                     </div>
-                    <p className="text-[9px] font-mono text-gray-700 mt-3">Volumen = kg × reps (BW cuenta como 1kg)</p>
+                    <p className="text-[9px] font-mono text-[var(--muted)] mt-3">Volumen = kg × reps (BW cuenta como 1kg)</p>
                   </div>
                 )}
 
                 {/* Exercise progression */}
                 {Object.keys(progressData.exerciseProgress).length > 0 && (
-                  <div className="border border-white/[0.07] rounded-2xl bg-[#111116] p-5">
-                    <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-4">Progresión por ejercicio</div>
-                    <div className="divide-y divide-white/[0.05]">
+                  <div className="border border-[var(--border-color)] rounded-2xl bg-surface p-5">
+                    <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest mb-4">Progresión por ejercicio</p>
+                    <div className="divide-y divide-[var(--border-color)]">
                       {Object.entries(progressData.exerciseProgress).map(([name, entries]) => {
                         const sorted = [...entries].sort((a, b) => a.weekNumber - b.weekNumber);
                         const max = Math.max(...sorted.map(e => e.maxWeight));
@@ -571,27 +587,27 @@ export default function RoutinePage() {
                         return (
                           <div key={name} className="py-3 space-y-2">
                             <div className="flex items-center justify-between">
-                              <div className="text-sm text-gray-200">{name}</div>
-                              <div className={`text-xs font-mono ${gain > 0 ? 'text-emerald-400' : gain < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <p className="text-sm font-medium text-foreground">{name}</p>
+                              <span className={`text-xs font-mono ${gain > 0 ? 'text-emerald-500' : gain < 0 ? 'text-rose-400' : 'text-[var(--muted)]'}`}>
                                 {gain > 0 ? `+${gain}kg` : gain < 0 ? `${gain}kg` : '—'}
-                              </div>
+                              </span>
                             </div>
-                            <div className="flex gap-3 overflow-x-auto">
+                            <div className="flex gap-3 overflow-x-auto scrollbar-thin">
                               {sorted.map(e => (
                                 <div key={e.weekNumber} className="flex-shrink-0 text-center">
-                                  <div className={`text-xs font-mono ${e.maxWeight === max ? 'text-white' : 'text-gray-400'}`}>
+                                  <p className={`text-xs font-mono ${e.maxWeight === max ? 'text-emerald-500' : 'text-[var(--muted)]'}`}>
                                     {e.maxWeight}kg
-                                  </div>
-                                  <div className="text-[9px] font-mono text-gray-600">S{e.weekNumber}</div>
+                                  </p>
+                                  <p className="text-[9px] font-mono text-[var(--muted)]">S{e.weekNumber}</p>
                                 </div>
                               ))}
                             </div>
                             {/* Simple bar progression */}
-                            <div className="flex gap-1 h-1 rounded-full overflow-hidden bg-white/[0.05]">
+                            <div className="flex gap-1 h-1 rounded-full overflow-hidden bg-surface-2">
                               {sorted.map((e, i) => (
                                 <div
                                   key={i}
-                                  className={`flex-1 rounded-full ${e.maxWeight === max ? 'bg-emerald-400' : 'bg-white/20'}`}
+                                  className={`flex-1 rounded-full ${e.maxWeight === max ? 'bg-emerald-500' : 'bg-zinc-500'}`}
                                   style={{ opacity: 0.4 + 0.6 * (e.maxWeight / max) }}
                                 />
                               ))}
@@ -604,7 +620,7 @@ export default function RoutinePage() {
                 )}
 
                 {progressData.weekVolumes.length === 0 && Object.keys(progressData.exerciseProgress).length === 0 && (
-                  <div className="text-center py-16 text-gray-600 text-sm">
+                  <div className="text-center py-16 text-[var(--muted)] text-sm">
                     Sin datos registrados aún. Empieza a loguear sesiones.
                   </div>
                 )}
@@ -613,6 +629,6 @@ export default function RoutinePage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
