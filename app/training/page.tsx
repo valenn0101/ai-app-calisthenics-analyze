@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import NavBar from '@/components/NavBar';
 import { Routine } from '@/lib/training-types';
 import { Goal, GoalCategory } from '@/lib/goals-types';
 
-// ── Goals re-export for client (no fs import) ─────────────────────────────────
-// GOAL_CATEGORY_LABELS is imported from lib/goals which uses fs.
-// We duplicate the labels here to avoid importing a server module on the client.
+// ── Goals labels (duplicated to avoid server fs import on client) ─────────────
 const CAT_LABELS: Record<GoalCategory, string> = {
   skill: 'Habilidad',
   strength: 'Fuerza',
@@ -17,6 +16,14 @@ const CAT_LABELS: Record<GoalCategory, string> = {
 };
 
 const CAT_OPTIONS: GoalCategory[] = ['skill', 'strength', 'endurance', 'body', 'other'];
+
+const CAT_COLORS: Record<GoalCategory, string> = {
+  skill: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+  strength: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+  endurance: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+  body: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  other: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+};
 
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('es', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso));
@@ -34,7 +41,6 @@ export default function TrainingPage() {
   const [loadingRoutines, setLoadingRoutines] = useState(true);
   const [loadingGoals, setLoadingGoals] = useState(true);
 
-  // Goal form
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [goalText, setGoalText] = useState('');
   const [goalCategory, setGoalCategory] = useState<GoalCategory>('strength');
@@ -91,44 +97,37 @@ export default function TrainingPage() {
   const activeGoals = goals.filter(g => !g.achieved);
   const achievedGoals = goals.filter(g => g.achieved);
 
+  const currentW = current ? weekProgress(current.startDate, current.weekCount) : 0;
+  const progressPct = current ? Math.round(currentW / current.weekCount * 100) : 0;
+
   return (
-    <main className="min-h-screen bg-[#0C0C10] text-white">
-      <header className="border-b border-white/[0.07]">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-[11px] font-mono text-gray-600 hover:text-white border border-white/[0.07] px-3 py-1.5 rounded-lg transition-all">
-              ← Inicio
+    <div className="min-h-screen bg-background">
+      <NavBar />
+
+      <main className="max-w-3xl mx-auto px-5 py-8 space-y-8">
+
+        {/* ── Rutina actual ─────────────────────────────────── */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Rutina actual</h2>
+            <Link
+              href="/training/new"
+              className="text-[11px] font-mono text-foreground bg-surface hover:bg-surface-2 border border-[var(--border-color)] px-3 py-1.5 rounded-lg transition-all"
+            >
+              + Nueva rutina
             </Link>
-            <div>
-              <div className="text-sm font-light tracking-widest">FORM<span className="text-gray-400">CHECK</span></div>
-              <div className="text-[10px] text-gray-600 font-mono">Entrenamiento</div>
-            </div>
           </div>
-          <Link
-            href="/training/new"
-            className="text-[11px] font-mono text-black bg-white hover:bg-gray-100 px-4 py-2 rounded-lg transition-all"
-          >
-            + Nueva rutina
-          </Link>
-        </div>
-      </header>
-
-      <div className="max-w-3xl mx-auto px-5 py-8 space-y-8">
-
-        {/* ── RUTINA ACTUAL ─────────────────────────────────────── */}
-        <section className="space-y-3">
-          <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Rutina actual</div>
 
           {loadingRoutines && (
-            <div className="text-xs text-gray-700 font-mono animate-pulse py-4">Cargando...</div>
+            <div className="text-xs text-[var(--muted)] font-mono animate-pulse py-4">Cargando...</div>
           )}
 
           {!loadingRoutines && !current && (
-            <div className="border border-dashed border-white/[0.10] rounded-2xl p-8 text-center space-y-3">
-              <p className="text-sm text-gray-500">Sin rutina activa</p>
+            <div className="border border-dashed border-[var(--border-color)] rounded-2xl p-8 text-center space-y-3">
+              <p className="text-sm text-[var(--muted)]">Sin rutina activa</p>
               <Link
                 href="/training/new"
-                className="inline-block text-xs text-black bg-white hover:bg-gray-100 px-5 py-2.5 rounded-xl transition-all"
+                className="inline-block bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-medium px-5 py-2.5 rounded-xl transition-all"
               >
                 Crear primera rutina
               </Link>
@@ -136,26 +135,26 @@ export default function TrainingPage() {
           )}
 
           {current && (
-            <div className="border border-white/[0.07] rounded-2xl bg-[#111116] overflow-hidden">
-              <div className="px-5 py-4">
-                {/* Header */}
+            <div className="border border-[var(--border-color)] rounded-2xl bg-surface overflow-hidden">
+              {/* Header */}
+              <div className="px-5 py-4 space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest mb-0.5">
+                    <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">
                       {current.weekCount} sem{current.hasDeload ? ' + descarga' : ''} · desde {formatDate(current.startDate)}
-                    </div>
-                    <h2 className="text-lg font-light text-white">{current.name}</h2>
+                    </p>
+                    <h3 className="text-lg font-medium text-foreground mt-0.5">{current.name}</h3>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     <Link
                       href={`/training/${current.id}/evolve`}
-                      className="text-[11px] font-mono text-gray-400 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
+                      className="text-[11px] font-mono text-[var(--muted)] hover:text-foreground border border-[var(--border-color)] px-3 py-1.5 rounded-lg transition-all"
                     >
                       Evolucionar →
                     </Link>
                     <Link
                       href={`/training/${current.id}`}
-                      className="text-[11px] font-mono text-white bg-white/[0.07] hover:bg-white/[0.12] border border-white/[0.09] px-3 py-1.5 rounded-lg transition-all"
+                      className="text-[11px] font-mono bg-emerald-500 hover:bg-emerald-400 text-white px-3 py-1.5 rounded-lg transition-all"
                     >
                       Ver detalle
                     </Link>
@@ -163,29 +162,32 @@ export default function TrainingPage() {
                 </div>
 
                 {/* Week progress bar */}
-                <div className="mt-4 space-y-1.5">
-                  <div className="flex justify-between text-[9px] font-mono text-gray-600">
-                    <span>Semana {weekProgress(current.startDate, current.weekCount)} de {current.weekCount}</span>
-                    <span>{Math.round(weekProgress(current.startDate, current.weekCount) / current.weekCount * 100)}%</span>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[9px] font-mono text-[var(--muted)]">
+                    <span>Semana {currentW} de {current.weekCount}</span>
+                    <span>{progressPct}%</span>
                   </div>
-                  <div className="h-0.5 bg-white/[0.06] rounded-full">
+                  <div className="h-1 bg-surface-2 rounded-full">
                     <div
-                      className="h-full bg-white/40 rounded-full transition-all"
-                      style={{ width: `${Math.min(weekProgress(current.startDate, current.weekCount) / current.weekCount * 100, 100)}%` }}
+                      className="h-full bg-emerald-500 rounded-full transition-all"
+                      style={{ width: `${Math.min(progressPct, 100)}%` }}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Days preview */}
-              <div className="border-t border-white/[0.05] px-5 py-3 flex gap-4 overflow-x-auto">
+              {/* Days as horizontal chips */}
+              <div className="border-t border-[var(--border-color)] px-5 py-3 flex gap-2 overflow-x-auto scrollbar-thin">
                 {current.days.map(day => (
-                  <div key={day.id} className="flex-shrink-0 min-w-0">
-                    <div className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">{day.dayName}</div>
-                    <div className="text-[10px] text-gray-400 truncate max-w-[120px]">{day.title}</div>
-                    <div className="text-[9px] text-gray-700 mt-0.5">
+                  <div
+                    key={day.id}
+                    className="flex-shrink-0 rounded-lg border border-[var(--border-color)] bg-background px-3 py-2 min-w-[100px]"
+                  >
+                    <p className="text-[9px] font-mono text-[var(--muted)] uppercase tracking-wider">{day.dayName}</p>
+                    <p className="text-[10px] text-foreground truncate max-w-[120px] mt-0.5">{day.title}</p>
+                    <p className="text-[9px] text-[var(--muted)] mt-0.5">
                       {day.blocks.reduce((n, b) => n + b.exercises.length, 0)} ejercicios
-                    </div>
+                    </p>
                   </div>
                 ))}
               </div>
@@ -193,13 +195,13 @@ export default function TrainingPage() {
           )}
         </section>
 
-        {/* ── OBJETIVOS ─────────────────────────────────────────── */}
+        {/* ── Objetivos ─────────────────────────────────────── */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Objetivos</div>
+            <h2 className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Objetivos</h2>
             <button
               onClick={() => setShowGoalForm(v => !v)}
-              className="text-[11px] font-mono text-gray-500 hover:text-white transition-colors"
+              className="text-[11px] font-mono text-[var(--muted)] hover:text-foreground transition-colors"
             >
               {showGoalForm ? 'Cancelar' : '+ Agregar'}
             </button>
@@ -207,21 +209,25 @@ export default function TrainingPage() {
 
           {/* Add goal form */}
           {showGoalForm && (
-            <div className="border border-white/[0.07] rounded-2xl bg-[#111116] p-4 space-y-3">
+            <div className="border border-[var(--border-color)] rounded-2xl bg-surface p-4 space-y-3">
               <input
                 value={goalText}
                 onChange={e => setGoalText(e.target.value)}
                 placeholder="Ej: Muscle Up limpio × 3 repeticiones"
                 onKeyDown={e => e.key === 'Enter' && addGoal()}
-                className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-white/[0.22] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-700 outline-none transition-colors"
+                className="w-full bg-background border border-[var(--border-color)] focus:border-zinc-500 rounded-xl px-4 py-3 text-sm text-foreground placeholder-[var(--muted)] outline-none transition-colors"
               />
               <div className="flex gap-2">
-                <div className="flex gap-1.5 flex-1 overflow-x-auto">
+                <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-thin">
                   {CAT_OPTIONS.map(c => (
                     <button
                       key={c}
                       onClick={() => setGoalCategory(c)}
-                      className={`flex-shrink-0 text-[10px] font-mono px-2.5 py-1.5 rounded-lg border transition-all ${goalCategory === c ? 'bg-white text-black border-white' : 'border-white/[0.08] text-gray-500 hover:text-gray-300'}`}
+                      className={`flex-shrink-0 text-[10px] font-mono px-2.5 py-1.5 rounded-lg border transition-all ${
+                        goalCategory === c
+                          ? CAT_COLORS[c]
+                          : 'border-[var(--border-color)] text-[var(--muted)] hover:text-foreground'
+                      }`}
                     >
                       {CAT_LABELS[c]}
                     </button>
@@ -231,13 +237,13 @@ export default function TrainingPage() {
                   type="date"
                   value={goalTarget}
                   onChange={e => setGoalTarget(e.target.value)}
-                  className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-[11px] text-gray-400 outline-none"
+                  className="bg-background border border-[var(--border-color)] rounded-lg px-3 py-1.5 text-[11px] text-[var(--muted)] outline-none"
                 />
               </div>
               <button
                 onClick={addGoal}
                 disabled={addingGoal || !goalText.trim()}
-                className="w-full py-2.5 bg-white text-black text-xs font-medium rounded-xl hover:bg-gray-100 disabled:opacity-30 transition-all"
+                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-medium rounded-xl disabled:opacity-30 transition-all"
               >
                 Guardar objetivo
               </button>
@@ -245,33 +251,35 @@ export default function TrainingPage() {
           )}
 
           {/* Active goals */}
-          {loadingGoals && <div className="text-xs text-gray-700 font-mono animate-pulse">Cargando objetivos...</div>}
+          {loadingGoals && <div className="text-xs text-[var(--muted)] font-mono animate-pulse">Cargando objetivos...</div>}
           {!loadingGoals && activeGoals.length === 0 && !showGoalForm && (
-            <p className="text-xs text-gray-700 font-mono">Sin objetivos activos · agregá uno para trazar tu progreso</p>
+            <p className="text-xs text-[var(--muted)] font-mono">Sin objetivos activos · agregá uno para trazar tu progreso</p>
           )}
 
           {activeGoals.length > 0 && (
-            <div className="border border-white/[0.07] rounded-2xl bg-[#111116] divide-y divide-white/[0.05] overflow-hidden">
+            <div className="border border-[var(--border-color)] rounded-2xl bg-surface divide-y divide-[var(--border-color)] overflow-hidden">
               {activeGoals.map(goal => (
                 <div key={goal.id} className="flex items-center gap-3 px-4 py-3">
                   <input
                     type="checkbox"
                     checked={false}
                     onChange={() => toggleGoal(goal)}
-                    className="w-4 h-4 accent-emerald-400 flex-shrink-0 cursor-pointer"
+                    className="w-4 h-4 accent-emerald-500 flex-shrink-0 cursor-pointer"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-gray-200">{goal.text}</div>
+                    <p className="text-sm text-foreground">{goal.text}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[9px] font-mono text-gray-600">{CAT_LABELS[goal.category]}</span>
+                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${CAT_COLORS[goal.category]}`}>
+                        {CAT_LABELS[goal.category]}
+                      </span>
                       {goal.targetDate && (
-                        <span className="text-[9px] font-mono text-gray-700">→ {formatDate(goal.targetDate)}</span>
+                        <span className="text-[9px] font-mono text-[var(--muted)]">→ {formatDate(goal.targetDate)}</span>
                       )}
                     </div>
                   </div>
                   <button
                     onClick={() => deleteGoal(goal.id)}
-                    className="text-gray-700 hover:text-red-400 text-xs transition-colors flex-shrink-0 px-1"
+                    className="text-[var(--muted)] hover:text-rose-400 text-xs transition-colors flex-shrink-0 px-1"
                   >
                     ✕
                   </button>
@@ -283,26 +291,26 @@ export default function TrainingPage() {
           {/* Achieved goals (collapsed) */}
           {achievedGoals.length > 0 && (
             <details className="group">
-              <summary className="text-[10px] font-mono text-gray-700 cursor-pointer hover:text-gray-500 transition-colors list-none flex items-center gap-1">
+              <summary className="text-[10px] font-mono text-[var(--muted)] cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1">
                 <span className="group-open:rotate-90 inline-block transition-transform">▶</span>
                 {achievedGoals.length} objetivo{achievedGoals.length > 1 ? 's' : ''} completado{achievedGoals.length > 1 ? 's' : ''}
               </summary>
-              <div className="mt-2 border border-white/[0.05] rounded-2xl bg-[#0F0F13] divide-y divide-white/[0.04] overflow-hidden">
+              <div className="mt-2 border border-[var(--border-color)] rounded-2xl bg-surface divide-y divide-[var(--border-color)] overflow-hidden">
                 {achievedGoals.map(goal => (
                   <div key={goal.id} className="flex items-center gap-3 px-4 py-3 opacity-50">
                     <input
                       type="checkbox"
                       checked={true}
                       onChange={() => toggleGoal(goal)}
-                      className="w-4 h-4 accent-emerald-400 flex-shrink-0 cursor-pointer"
+                      className="w-4 h-4 accent-emerald-500 flex-shrink-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-400 line-through">{goal.text}</div>
-                      <div className="text-[9px] font-mono text-gray-600">
+                      <p className="text-sm text-[var(--muted)] line-through">{goal.text}</p>
+                      <p className="text-[9px] font-mono text-[var(--muted)]">
                         {CAT_LABELS[goal.category]}{goal.achievedDate ? ` · completado ${formatDate(goal.achievedDate)}` : ''}
-                      </div>
+                      </p>
                     </div>
-                    <button onClick={() => deleteGoal(goal.id)} className="text-gray-700 hover:text-red-400 text-xs transition-colors px-1">✕</button>
+                    <button onClick={() => deleteGoal(goal.id)} className="text-[var(--muted)] hover:text-rose-400 text-xs transition-colors px-1">✕</button>
                   </div>
                 ))}
               </div>
@@ -310,31 +318,31 @@ export default function TrainingPage() {
           )}
         </section>
 
-        {/* ── HISTORIAL ─────────────────────────────────────────── */}
+        {/* ── Historial ─────────────────────────────────────── */}
         {history.length > 0 && (
           <section className="space-y-3">
-            <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">Historial</div>
+            <h2 className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Historial</h2>
             <div className="space-y-2">
               {history.map(r => (
                 <Link
                   key={r.id}
                   href={`/training/${r.id}`}
-                  className="flex items-center justify-between border border-white/[0.06] rounded-xl bg-[#0F0F13] hover:bg-[#111116] px-4 py-3 transition-colors group"
+                  className="flex items-center justify-between border border-[var(--border-color)] rounded-xl bg-surface hover:bg-surface-2 px-4 py-3 transition-colors group"
                 >
                   <div>
-                    <div className="text-sm text-gray-400 group-hover:text-gray-200 transition-colors">{r.name}</div>
-                    <div className="text-[10px] font-mono text-gray-700">
+                    <p className="text-sm text-foreground">{r.name}</p>
+                    <p className="text-[10px] font-mono text-[var(--muted)]">
                       {formatDate(r.startDate)} · {r.weekCount} semanas
-                    </div>
+                    </p>
                   </div>
-                  <span className="text-gray-700 group-hover:text-gray-400 text-xs transition-colors">→</span>
+                  <span className="text-[var(--muted)] group-hover:text-foreground text-xs transition-colors">→</span>
                 </Link>
               ))}
             </div>
           </section>
         )}
 
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

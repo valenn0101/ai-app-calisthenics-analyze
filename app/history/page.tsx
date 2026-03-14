@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import NavBar from '@/components/NavBar';
 import ProgressChart from '@/components/ProgressChart';
 import { SessionRecord } from '@/lib/storage';
+
+const scoreColor = (s: number) =>
+  s >= 8 ? 'text-emerald-500' : s >= 6 ? 'text-amber-400' : s >= 4 ? 'text-orange-400' : 'text-rose-400';
 
 export default function HistoryPage() {
   const [selectedExercise, setSelectedExercise] = useState<string>('all');
@@ -63,34 +67,19 @@ export default function HistoryPage() {
   const latestSession = sessions.length > 0 ? sessions[0] : null;
 
   return (
-    <main className="min-h-screen bg-[#060609] text-white">
-      <header className="border-b border-gray-800">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-mono font-bold text-white tracking-tight">
-              Form<span className="text-violet-500">Check</span>
-              <span className="text-gray-500 font-normal ml-2">/ Historial</span>
-            </h1>
-            <p className="text-xs text-gray-500 font-mono">progresión de técnica</p>
-          </div>
-          <Link
-            href="/"
-            className="text-xs font-mono text-gray-400 hover:text-violet-400 border border-gray-700 hover:border-violet-500/50 px-3 py-1.5 rounded transition-all"
-          >
-            ← Analizar
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background">
+      <NavBar />
 
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+      <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+
         {/* Filter */}
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setSelectedExercise('all')}
-            className={`text-xs font-mono py-1.5 px-3 rounded border transition-all ${
+            className={`text-xs font-mono py-1.5 px-3 rounded-lg border transition-all ${
               selectedExercise === 'all'
-                ? 'border-violet-500 bg-violet-500/10 text-violet-300'
-                : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400'
+                : 'border-[var(--border-color)] text-[var(--muted)] hover:text-foreground'
             }`}
           >
             Todos
@@ -99,10 +88,10 @@ export default function HistoryPage() {
             <button
               key={ex}
               onClick={() => setSelectedExercise(ex)}
-              className={`text-xs font-mono py-1.5 px-3 rounded border transition-all ${
+              className={`text-xs font-mono py-1.5 px-3 rounded-lg border transition-all ${
                 selectedExercise === ex
-                  ? 'border-violet-500 bg-violet-500/10 text-violet-300'
-                  : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                  ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400'
+                  : 'border-[var(--border-color)] text-[var(--muted)] hover:text-foreground'
               }`}
             >
               {ex}
@@ -111,17 +100,15 @@ export default function HistoryPage() {
         </div>
 
         {loading ? (
-          <div className="text-center text-gray-500 font-mono py-16 animate-pulse">
+          <div className="text-center text-[var(--muted)] font-mono py-16 animate-pulse">
             Cargando historial...
           </div>
         ) : sessions.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-gray-600 font-mono text-sm mb-4">
-              No hay sesiones registradas
-            </div>
+          <div className="text-center py-16 space-y-3">
+            <p className="text-[var(--muted)] font-mono text-sm">No hay sesiones registradas</p>
             <Link
               href="/"
-              className="text-xs font-mono text-violet-400 border border-violet-500/30 px-4 py-2 rounded hover:bg-violet-500/10 transition-all"
+              className="inline-block text-xs font-mono text-foreground border border-[var(--border-color)] px-4 py-2 rounded-lg hover:bg-surface transition-all"
             >
               Comenzar análisis →
             </Link>
@@ -130,24 +117,24 @@ export default function HistoryPage() {
           <>
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4">
-              <div className="border border-gray-800 rounded-lg p-4 text-center">
-                <div className="text-2xl font-mono font-bold text-violet-400">{sessions.length}</div>
-                <div className="text-xs text-gray-500 font-mono uppercase mt-1">Sesiones</div>
+              <div className="border border-[var(--border-color)] rounded-xl bg-surface p-4 text-center">
+                <p className="text-2xl font-mono font-light text-indigo-400">{sessions.length}</p>
+                <p className="text-[10px] text-[var(--muted)] font-mono uppercase mt-1">Sesiones</p>
               </div>
-              <div className="border border-gray-800 rounded-lg p-4 text-center">
-                <div className="text-2xl font-mono font-bold text-blue-400">{avgScore}</div>
-                <div className="text-xs text-gray-500 font-mono uppercase mt-1">Score Prom.</div>
+              <div className="border border-[var(--border-color)] rounded-xl bg-surface p-4 text-center">
+                <p className="text-2xl font-mono font-light text-sky-400">{avgScore}</p>
+                <p className="text-[10px] text-[var(--muted)] font-mono uppercase mt-1">Score Prom.</p>
               </div>
-              <div className="border border-gray-800 rounded-lg p-4 text-center">
-                <div className="text-2xl font-mono font-bold text-green-400">{bestScore}</div>
-                <div className="text-xs text-gray-500 font-mono uppercase mt-1">Mejor</div>
+              <div className="border border-[var(--border-color)] rounded-xl bg-surface p-4 text-center">
+                <p className="text-2xl font-mono font-light text-emerald-500">{bestScore}</p>
+                <p className="text-[10px] text-[var(--muted)] font-mono uppercase mt-1">Mejor</p>
               </div>
             </div>
 
             {/* Progress Chart */}
             {selectedExercise !== 'all' && chartSessions.length > 0 && (
-              <div className="border border-gray-800 rounded-lg p-4">
-                <h2 className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-4">
+              <div className="border border-[var(--border-color)] rounded-2xl bg-surface p-5">
+                <h2 className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest mb-4">
                   Progresión — {selectedExercise}
                 </h2>
                 <ProgressChart
@@ -159,74 +146,69 @@ export default function HistoryPage() {
 
             {/* Latest comparison */}
             {latestSession && latestSession.previousScore !== undefined && (
-              <div className={`border rounded-lg p-4 ${
+              <div className={`border rounded-2xl p-5 ${
                 (latestSession.improvement ?? 0) >= 0
-                  ? 'border-green-500/20 bg-green-500/5'
-                  : 'border-red-500/20 bg-red-500/5'
+                  ? 'border-emerald-500/20 bg-emerald-500/[0.04]'
+                  : 'border-rose-500/20 bg-rose-500/[0.04]'
               }`}>
-                <div className="text-xs font-mono text-gray-400 uppercase mb-2">Última sesión vs anterior</div>
+                <p className="text-[10px] font-mono text-[var(--muted)] uppercase mb-2">Última sesión vs anterior</p>
                 <div className="flex items-center gap-4">
-                  <div className="text-2xl font-mono font-bold">
+                  <p className="text-2xl font-mono font-light text-foreground">
                     {latestSession.previousScore} → {latestSession.score}
-                  </div>
-                  <div className={`text-lg font-mono ${(latestSession.improvement ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  </p>
+                  <p className={`text-lg font-mono ${(latestSession.improvement ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>
                     {(latestSession.improvement ?? 0) > 0 ? '+' : ''}{latestSession.improvement?.toFixed(1)}
-                  </div>
-                  <div className="text-xs text-gray-500">{latestSession.exercise}</div>
+                  </p>
+                  <p className="text-xs text-[var(--muted)]">{latestSession.exercise}</p>
                 </div>
               </div>
             )}
 
             {/* Session List */}
             <div className="space-y-2">
-              <h2 className="text-xs font-mono text-gray-400 uppercase tracking-wider">
+              <h2 className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">
                 Sesiones ({sessions.length})
               </h2>
               {sessions.map(session => (
                 <div
                   key={session.id}
-                  className="border border-gray-800 rounded-lg overflow-hidden"
+                  className="border border-[var(--border-color)] rounded-xl bg-surface overflow-hidden"
                 >
                   <button
                     onClick={() => setExpandedSession(expandedSession === session.id ? null : session.id)}
-                    className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-900/50 transition-all text-left"
+                    className="w-full flex items-center gap-4 px-4 py-3 hover:bg-surface-2 transition-all text-left"
                   >
-                    <div className={`text-xl font-mono font-bold w-10 text-center ${
-                      session.score >= 8 ? 'text-green-400' :
-                      session.score >= 6 ? 'text-yellow-400' :
-                      session.score >= 4 ? 'text-orange-400' :
-                      'text-red-400'
-                    }`}>
+                    <div className={`text-xl font-mono font-light w-10 text-center ${scoreColor(session.score)}`}>
                       {session.score}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white font-medium">
+                      <p className="text-sm text-foreground font-medium">
                         {session.exercise}
-                      </div>
-                      <div className="text-xs text-gray-500 font-mono truncate">
+                      </p>
+                      <p className="text-xs text-[var(--muted)] font-mono truncate">
                         {new Date(session.date).toLocaleString('es')} · {session.analysisData.phase}
-                      </div>
+                      </p>
                     </div>
                     {session.improvement !== undefined && (
                       <div className={`text-xs font-mono flex-shrink-0 ${
-                        session.improvement > 0 ? 'text-green-400' :
-                        session.improvement < 0 ? 'text-red-400' :
-                        'text-gray-500'
+                        session.improvement > 0 ? 'text-emerald-500' :
+                        session.improvement < 0 ? 'text-rose-400' :
+                        'text-[var(--muted)]'
                       }`}>
                         {session.improvement > 0 ? '+' : ''}{session.improvement.toFixed(1)}
                       </div>
                     )}
-                    <div className="text-gray-600 text-xs flex-shrink-0">
+                    <div className="text-[var(--muted)] text-xs flex-shrink-0">
                       {expandedSession === session.id ? '▲' : '▼'}
                     </div>
                   </button>
 
                   {expandedSession === session.id && (
-                    <div className="border-t border-gray-800 px-4 py-4 space-y-4">
+                    <div className="border-t border-[var(--border-color)] px-4 py-4 space-y-4">
                       {/* Corrections summary */}
                       {session.analysisData.corrections.length > 0 && (
                         <div>
-                          <div className="text-xs font-mono text-gray-500 uppercase mb-2">Correcciones</div>
+                          <p className="text-[10px] font-mono text-[var(--muted)] uppercase mb-2">Correcciones</p>
                           <ul className="space-y-1">
                             {session.analysisData.corrections
                               .sort((a, b) => {
@@ -234,11 +216,11 @@ export default function HistoryPage() {
                                 return order[a.priority] - order[b.priority];
                               })
                               .map((c, i) => (
-                                <li key={i} className="text-xs text-gray-300 flex gap-2">
+                                <li key={i} className="text-xs text-foreground flex gap-2">
                                   <span className={
-                                    c.priority === 'high' ? 'text-red-400' :
-                                    c.priority === 'medium' ? 'text-yellow-400' :
-                                    'text-green-400'
+                                    c.priority === 'high' ? 'text-rose-400' :
+                                    c.priority === 'medium' ? 'text-amber-400' :
+                                    'text-sky-400'
                                   }>●</span>
                                   {c.text}
                                 </li>
@@ -251,7 +233,7 @@ export default function HistoryPage() {
                       {session.analysisData.cues.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {session.analysisData.cues.map((cue, i) => (
-                            <span key={i} className="text-xs font-mono text-violet-300 bg-violet-900/20 border border-violet-500/20 px-2 py-0.5 rounded">
+                            <span key={i} className="text-xs font-mono text-foreground bg-surface border border-[var(--border-color)] px-2 py-0.5 rounded-lg">
                               {cue}
                             </span>
                           ))}
@@ -261,11 +243,11 @@ export default function HistoryPage() {
                       {/* Next Steps */}
                       {session.analysisData.nextSteps.length > 0 && (
                         <div>
-                          <div className="text-xs font-mono text-gray-500 uppercase mb-2">Próximos Pasos</div>
+                          <p className="text-[10px] font-mono text-[var(--muted)] uppercase mb-2">Próximos Pasos</p>
                           <ol className="space-y-1">
                             {session.analysisData.nextSteps.map((step, i) => (
-                              <li key={i} className="text-xs text-gray-400 flex gap-2">
-                                <span className="font-mono text-gray-600">{i + 1}.</span>
+                              <li key={i} className="text-xs text-foreground flex gap-2">
+                                <span className="font-mono text-[var(--muted)]">{i + 1}.</span>
                                 {step}
                               </li>
                             ))}
@@ -276,17 +258,17 @@ export default function HistoryPage() {
                       {/* Frames */}
                       {session.framesData.length > 0 && (
                         <div>
-                          <div className="text-xs font-mono text-gray-500 uppercase mb-2">
+                          <p className="text-[10px] font-mono text-[var(--muted)] uppercase mb-2">
                             Frames ({session.framesData.length})
-                          </div>
-                          <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          </p>
+                          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
                             {session.framesData.slice(0, 8).map((frame, i) => (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 key={i}
                                 src={frame}
                                 alt={`Frame ${i + 1}`}
-                                className="flex-shrink-0 rounded border border-gray-700 object-cover"
+                                className="flex-shrink-0 rounded-lg border border-[var(--border-color)] object-cover"
                                 style={{ width: 72, height: 54 }}
                               />
                             ))}
@@ -300,7 +282,7 @@ export default function HistoryPage() {
             </div>
           </>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

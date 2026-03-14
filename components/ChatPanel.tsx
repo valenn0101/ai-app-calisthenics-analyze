@@ -23,6 +23,40 @@ const SUGGESTIONS = [
   'Explica la fase del movimiento detectada',
 ];
 
+// Parse structured card blocks from model responses.
+// Format: ---CARD---\nTITLE: ...\nSUBTITLE: ...\nDETAIL: ...\n---END---
+function parseMessageContent(content: string) {
+  const parts: Array<{ type: 'text' | 'card'; content: string; title?: string; subtitle?: string; detail?: string }> = [];
+  const cardRegex = /---CARD---\n([\s\S]*?)---END---/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = cardRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      const text = content.slice(lastIndex, match.index).trim();
+      if (text) parts.push({ type: 'text', content: text });
+    }
+    const cardContent = match[1];
+    const titleMatch = cardContent.match(/TITLE:\s*(.+)/);
+    const subtitleMatch = cardContent.match(/SUBTITLE:\s*(.+)/);
+    const detailMatch = cardContent.match(/DETAIL:\s*(.+)/);
+    parts.push({
+      type: 'card',
+      content: cardContent,
+      title: titleMatch?.[1]?.trim(),
+      subtitle: subtitleMatch?.[1]?.trim(),
+      detail: detailMatch?.[1]?.trim(),
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  const remaining = content.slice(lastIndex).trim();
+  if (remaining) parts.push({ type: 'text', content: remaining });
+  if (parts.length === 0) parts.push({ type: 'text', content });
+
+  return parts;
+}
+
 export default function ChatPanel({ exercise, analysis, verification }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -96,18 +130,23 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
   return (
     <div className="flex flex-col" style={{ height: 520 }}>
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+      <div className="flex-1 overflow-y-auto space-y-3 pb-2 scrollbar-thin">
         {messages.length === 0 ? (
-          <div className="pt-6 space-y-4">
-            <p className="text-xs text-gray-500 text-center tracking-wide">
-              Coach disponible · {exercise}
-            </p>
+          <div className="pt-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center flex-shrink-0">
+                <span className="text-[9px] text-white font-mono">✦</span>
+              </div>
+              <p className="text-xs text-[var(--muted)]">
+                Coach IA · {exercise}
+              </p>
+            </div>
             <div className="space-y-1.5">
               {SUGGESTIONS.map(s => (
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="w-full text-left text-xs text-gray-300 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] px-3 py-2.5 rounded-lg transition-colors"
+                  className="w-full text-left text-xs text-foreground bg-surface hover:bg-surface-2 border border-[var(--border-color)] px-3 py-2.5 rounded-xl transition-colors"
                 >
                   {s}
                 </button>
@@ -116,23 +155,40 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
           </div>
         ) : (
           messages.map(m => (
-            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start gap-2'}`}>
               {m.role === 'model' && (
-                <div className="w-5 h-5 rounded-full bg-white/[0.08] border border-white/[0.10] flex items-center justify-center flex-shrink-0 mt-1 mr-2">
-                  <span className="text-[8px] text-gray-400 font-mono">C</span>
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-[9px] text-white font-mono">✦</span>
                 </div>
               )}
-              <div
-                className={`max-w-[82%] text-sm leading-relaxed whitespace-pre-wrap px-3 py-2.5 rounded-2xl ${
-                  m.role === 'user'
-                    ? 'bg-white/[0.07] text-gray-100 border border-white/[0.09] rounded-tr-sm'
-                    : 'bg-white/[0.03] text-gray-200 border border-white/[0.05] rounded-tl-sm'
-                }`}
-              >
+              <div className={`max-w-[82%] ${m.role === 'user' ? '' : 'space-y-2'}`}>
                 {m.role === 'model' && (
-                  <div className="text-[9px] font-mono text-gray-600 mb-1 uppercase tracking-wider">Coach</div>
+                  <p className="text-[9px] font-mono text-indigo-400 uppercase tracking-wider mb-1">Coach IA</p>
                 )}
-                {m.content}
+                {m.role === 'user' ? (
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap px-3 py-2.5 rounded-2xl rounded-tr-sm bg-surface border border-[var(--border-color)] text-foreground">
+                    {m.content}
+                  </div>
+                ) : (
+                  parseMessageContent(m.content).map((part, i) => (
+                    part.type === 'card' ? (
+                      <div key={i} className="bg-indigo-500/[0.08] border border-indigo-500/20 rounded-xl p-3">
+                        {part.title && (
+                          <p className="text-[9px] font-mono text-indigo-400 uppercase tracking-widest mb-1">
+                            Bloque sugerido
+                          </p>
+                        )}
+                        {part.title && <p className="text-sm font-medium text-foreground">{part.title}</p>}
+                        {part.subtitle && <p className="text-xs text-[var(--muted)] mt-0.5">{part.subtitle}</p>}
+                        {part.detail && <p className="text-xs font-mono text-indigo-300 mt-1">{part.detail}</p>}
+                      </div>
+                    ) : (
+                      <div key={i} className="text-sm leading-relaxed whitespace-pre-wrap px-3 py-2.5 rounded-2xl rounded-tl-sm bg-surface border border-[var(--border-color)] text-foreground">
+                        {part.content}
+                      </div>
+                    )
+                  ))
+                )}
               </div>
             </div>
           ))
@@ -140,36 +196,36 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
 
         {loading && (
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-full bg-white/[0.08] border border-white/[0.10] flex items-center justify-center flex-shrink-0">
-              <span className="text-[8px] text-gray-400 font-mono">C</span>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center flex-shrink-0">
+              <span className="text-[9px] text-white font-mono">✦</span>
             </div>
-            <div className="bg-white/[0.03] border border-white/[0.05] px-4 py-3 rounded-2xl rounded-tl-sm">
+            <div className="bg-surface border border-[var(--border-color)] px-4 py-3 rounded-2xl rounded-tl-sm">
               <div className="flex gap-1.5 items-center h-3">
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:0ms]" />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:120ms]" />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:240ms]" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:120ms]" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:240ms]" />
               </div>
             </div>
           </div>
         )}
 
-        {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+        {error && <p className="text-xs text-rose-400 text-center">{error}</p>}
 
         <div ref={bottomRef} />
       </div>
 
-      {/* Save bar (visible when there are messages) */}
+      {/* Save bar */}
       {messages.length > 0 && (
-        <div className="py-2 flex items-center justify-between border-t border-white/[0.05]">
+        <div className="py-2 flex items-center justify-between border-t border-[var(--border-color)]">
           <button
             onClick={handleSave}
             disabled={saveState !== 'idle'}
             className={`text-[10px] font-mono transition-colors ${
               saveState === 'saved'
-                ? 'text-emerald-400'
+                ? 'text-emerald-500'
                 : saveState === 'saving'
-                ? 'text-gray-600 animate-pulse'
-                : 'text-gray-600 hover:text-gray-300'
+                ? 'text-[var(--muted)] animate-pulse'
+                : 'text-[var(--muted)] hover:text-foreground'
             }`}
           >
             {saveState === 'saved'
@@ -182,7 +238,7 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
           {saveState === 'saved' && (
             <Link
               href="/chats"
-              className="text-[10px] font-mono text-gray-500 hover:text-white transition-colors"
+              className="text-[10px] font-mono text-[var(--muted)] hover:text-foreground transition-colors"
             >
               Ver guardadas →
             </Link>
@@ -191,7 +247,7 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
       )}
 
       {/* Input */}
-      <div className="pt-2 border-t border-white/[0.07] flex-shrink-0">
+      <div className="pt-2 border-t border-[var(--border-color)] flex-shrink-0">
         <form
           onSubmit={e => { e.preventDefault(); send(input); }}
           className="flex gap-2"
@@ -203,12 +259,12 @@ export default function ChatPanel({ exercise, analysis, verification }: ChatPane
             onChange={e => setInput(e.target.value)}
             placeholder="Pregunta al coach..."
             disabled={loading}
-            className="flex-1 bg-white/[0.04] border border-white/[0.09] focus:border-white/[0.20] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-600 outline-none transition-colors disabled:opacity-40"
+            className="flex-1 bg-surface border border-[var(--border-color)] focus:border-indigo-500/50 rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder-[var(--muted)] outline-none transition-colors disabled:opacity-40"
           />
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="px-4 py-2.5 bg-white text-black text-xs font-medium rounded-xl hover:bg-gray-100 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+            className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-medium rounded-xl disabled:opacity-25 disabled:cursor-not-allowed transition-all"
           >
             ↑
           </button>

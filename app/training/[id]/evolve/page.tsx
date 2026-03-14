@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import NavBar from '@/components/NavBar';
 import { Routine } from '@/lib/training-types';
 
 interface Message {
@@ -23,14 +24,14 @@ function extractRoutine(content: string): string | null {
 // ── Block-type badge ───────────────────────────────────────────────────────────
 
 const BLOCK_BADGE: Record<string, string> = {
-  FUERZA: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  POTENCIA: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
-  HIPERTROFIA: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-  ACCESORIO: 'bg-gray-500/15 text-gray-400 border-gray-500/30',
+  FUERZA: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  POTENCIA: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+  HIPERTROFIA: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  ACCESORIO: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30',
   HABILIDAD: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  ACONDICIONAMIENTO: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
-  CALENTAMIENTO: 'bg-pink-500/15 text-pink-300 border-pink-500/30',
-  GENERAL: 'bg-white/5 text-gray-500 border-white/10',
+  ACONDICIONAMIENTO: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  CALENTAMIENTO: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  GENERAL: 'bg-surface text-[var(--muted)] border-[var(--border-color)]',
 };
 
 // ── Routine text renderer ──────────────────────────────────────────────────────
@@ -38,7 +39,7 @@ const BLOCK_BADGE: Record<string, string> = {
 function RoutineBlock({ text }: { text: string }) {
   const lines = text.split('\n');
   return (
-    <div className="font-mono text-xs text-gray-300 leading-relaxed space-y-0.5">
+    <div className="font-mono text-xs text-foreground leading-relaxed space-y-0.5">
       {lines.map((line, i) => {
         const match = line.match(/^\[([A-ZÁÉÍÓÚÑ]+)\]/);
         if (match) {
@@ -48,12 +49,12 @@ function RoutineBlock({ text }: { text: string }) {
               <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono tracking-widest flex-shrink-0 ${badge}`}>
                 {match[1]}
               </span>
-              <span className="text-gray-400 text-[10px]">{line.slice(match[0].length).trim()}</span>
+              <span className="text-[var(--muted)] text-[10px]">{line.slice(match[0].length).trim()}</span>
             </div>
           );
         }
         if (/^(LUNES|MARTES|MI[ÉE]RCOLES|JUEVES|VIERNES|S[ÁA]BADO|DOMINGO)/i.test(line.trim())) {
-          return <div key={i} className="text-white font-semibold text-[11px] mt-4 first:mt-0 tracking-wide border-b border-white/[0.06] pb-1">{line}</div>;
+          return <div key={i} className="text-foreground font-semibold text-[11px] mt-4 first:mt-0 tracking-wide border-b border-[var(--border-color)] pb-1">{line}</div>;
         }
         return <div key={i} className={line.trim() === '' ? 'h-1' : 'pl-1'}>{line || '\u00A0'}</div>;
       })}
@@ -71,8 +72,8 @@ function ModelMessage({ content, onSave }: { content: string; onSave?: (text: st
     const after = content.slice(content.indexOf(ROUTINE_END) + ROUTINE_END.length).trim();
     return (
       <div className="space-y-3">
-        {before && <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{before}</p>}
-        <div className="border border-emerald-500/25 rounded-xl bg-emerald-500/5 p-4 space-y-3">
+        {before && <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{before}</p>}
+        <div className="border border-emerald-500/25 rounded-xl bg-emerald-500/[0.05] p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[9px] font-mono text-emerald-400 uppercase tracking-widest">Rutina generada</span>
             {onSave && (
@@ -86,12 +87,12 @@ function ModelMessage({ content, onSave }: { content: string; onSave?: (text: st
           </div>
           <RoutineBlock text={routineText} />
         </div>
-        {after && <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{after}</p>}
+        {after && <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{after}</p>}
       </div>
     );
   }
 
-  return <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{content}</p>;
+  return <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{content}</p>;
 }
 
 // ── Save modal ─────────────────────────────────────────────────────────────────
@@ -156,37 +157,37 @@ function SaveModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-[#111116] border border-white/[0.1] rounded-2xl p-5 space-y-4">
-        <div className="text-sm font-light tracking-widest">Guardar nueva rutina</div>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-surface border border-[var(--border-color)] rounded-2xl p-5 space-y-4">
+        <div className="text-sm font-light tracking-widest text-foreground">Guardar nueva rutina</div>
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono text-gray-600">Nombre / período</label>
+            <label className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Nombre / período</label>
             <input
               value={period}
               onChange={e => setPeriod(e.target.value)}
               placeholder="Ej: Mayo 2026"
-              className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-white/[0.22] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-700 outline-none"
+              className="w-full bg-background border border-[var(--border-color)] focus:border-zinc-400 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-[var(--muted)] outline-none transition-colors"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono text-gray-600">Fecha de inicio</label>
+            <label className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Fecha de inicio</label>
             <input
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-white/[0.22] rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+              className="w-full bg-background border border-[var(--border-color)] focus:border-zinc-400 rounded-xl px-4 py-2.5 text-sm text-foreground outline-none transition-colors"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono text-gray-600">Semanas</label>
+            <label className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Semanas</label>
             <div className="flex gap-1">
               {[3, 4, 5, 6].map(n => (
                 <button
                   key={n}
                   onClick={() => setWeekCount(n)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-mono border transition-all ${weekCount === n ? 'bg-white text-black border-white' : 'border-white/[0.08] text-gray-400'}`}
+                  className={`flex-1 py-2 rounded-xl text-xs font-mono border transition-all ${weekCount === n ? 'bg-foreground text-background border-foreground' : 'border-[var(--border-color)] text-[var(--muted)] hover:text-foreground'}`}
                 >
                   {n}
                 </button>
@@ -194,32 +195,32 @@ function SaveModal({
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-300">Semana de descarga</span>
+            <span className="text-xs text-foreground">Semana de descarga</span>
             <button
               onClick={() => setHasDeload(!hasDeload)}
               style={{ width: 40, height: 22 }}
-              className={`rounded-full border relative transition-all flex-shrink-0 ${hasDeload ? 'bg-white border-white' : 'bg-transparent border-white/20'}`}
+              className={`rounded-full border relative transition-all flex-shrink-0 ${hasDeload ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-[var(--border-color)]'}`}
             >
-              <span className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${hasDeload ? 'right-0.5 bg-black' : 'left-0.5 bg-gray-500'}`} />
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${hasDeload ? 'right-0.5 bg-white' : 'left-0.5 bg-[var(--muted)]'}`} />
             </button>
           </div>
         </div>
 
-        {error && <p className="text-xs text-red-400 font-mono">{error}</p>}
+        {error && <p className="text-xs text-rose-400 font-mono">{error}</p>}
 
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 border border-white/[0.08] text-gray-400 text-sm rounded-xl hover:text-white transition-colors"
+            className="flex-1 py-2.5 border border-[var(--border-color)] text-[var(--muted)] text-sm rounded-xl hover:text-foreground transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 py-2.5 bg-white text-black text-sm font-medium rounded-xl hover:bg-gray-100 disabled:opacity-40 transition-all"
+            className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium rounded-xl disabled:opacity-40 transition-all"
           >
-            {saving ? <span className="font-mono text-xs text-gray-500 animate-pulse">Guardando...</span> : 'Guardar'}
+            {saving ? <span className="font-mono text-xs animate-pulse">Guardando...</span> : 'Guardar'}
           </button>
         </div>
       </div>
@@ -319,25 +320,27 @@ export default function EvolvePage() {
   const lastRoutineText = [...messages].reverse().find(m => extractRoutine(m.content));
 
   if (!routine) return (
-    <main className="min-h-screen bg-[#0C0C10] flex items-center justify-center">
-      <span className="text-gray-600 text-xs font-mono animate-pulse">Cargando rutina...</span>
-    </main>
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <span className="text-[var(--muted)] text-xs font-mono animate-pulse">Cargando rutina...</span>
+    </div>
   );
 
   return (
-    <main className="min-h-screen bg-[#0C0C10] text-white flex flex-col">
-      {/* Header */}
-      <header className="border-b border-white/[0.07] flex-shrink-0">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center gap-3">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <NavBar />
+
+      {/* Sub-header */}
+      <div className="border-b border-[var(--border-color)] flex-shrink-0">
+        <div className="max-w-3xl mx-auto px-5 py-3 flex items-center gap-3">
           <Link
             href={`/training/${id}`}
-            className="text-[11px] font-mono text-gray-600 hover:text-white border border-white/[0.07] px-3 py-1.5 rounded-lg transition-all"
+            className="text-[11px] font-mono text-[var(--muted)] hover:text-foreground border border-[var(--border-color)] px-3 py-1.5 rounded-lg transition-all"
           >
             ← Volver
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-light tracking-widest">Evolucionar rutina</div>
-            <div className="text-[10px] text-gray-600 font-mono truncate">{routine.name}</div>
+            <div className="text-sm font-light text-foreground">Evolucionar rutina</div>
+            <div className="text-[10px] text-[var(--muted)] font-mono truncate">{routine.name}</div>
           </div>
           {lastRoutineText && (
             <button
@@ -348,33 +351,35 @@ export default function EvolvePage() {
             </button>
           )}
         </div>
-      </header>
+      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
           {messages.length === 0 && loading && (
             <div className="flex items-center justify-center h-32">
-              <span className="text-gray-700 text-xs font-mono animate-pulse">Iniciando sesión de coaching...</span>
+              <span className="text-[var(--muted)] text-xs font-mono animate-pulse">Iniciando sesión de coaching...</span>
             </div>
           )}
 
           {messages.map((msg, i) => (
             <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
               <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-mono mt-0.5
-                ${msg.role === 'user' ? 'bg-white/10 text-gray-300' : 'bg-white/[0.05] text-gray-600 border border-white/[0.08]'}`}
+                ${msg.role === 'user'
+                  ? 'bg-surface-2 text-[var(--muted)]'
+                  : 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white'}`}
               >
-                {msg.role === 'user' ? 'Tú' : 'IA'}
+                {msg.role === 'user' ? 'Tú' : '✦'}
               </div>
               <div className={`max-w-[88%] rounded-2xl px-4 py-3
                 ${msg.role === 'user'
-                  ? 'bg-white/[0.08] rounded-tr-sm'
-                  : 'bg-[#111116] border border-white/[0.06] rounded-tl-sm'
+                  ? 'bg-surface border border-[var(--border-color)] rounded-tr-sm'
+                  : 'bg-surface border border-[var(--border-color)] rounded-tl-sm'
                 }`}
               >
                 {msg.role === 'model'
                   ? <ModelMessage content={msg.content} onSave={setSaveText} />
-                  : <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  : <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                 }
               </div>
             </div>
@@ -382,25 +387,25 @@ export default function EvolvePage() {
 
           {loading && (
             <div className="flex gap-3">
-              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-[9px] font-mono text-gray-600 mt-0.5">IA</div>
-              <div className="bg-[#111116] border border-white/[0.06] rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-[9px] font-mono text-white mt-0.5">✦</div>
+              <div className="bg-surface border border-[var(--border-color)] rounded-2xl rounded-tl-sm px-4 py-3">
                 <div className="flex gap-1.5 items-center h-5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             </div>
           )}
 
-          {error && <p className="text-xs text-red-400 font-mono text-center py-2">{error}</p>}
+          {error && <p className="text-xs text-rose-400 font-mono text-center py-2">{error}</p>}
 
           <div ref={messagesEndRef} />
         </div>
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 border-t border-white/[0.07] bg-[#0C0C10]">
+      <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-background">
         <div className="max-w-3xl mx-auto px-5 py-4">
           <div className="flex gap-3 items-end">
             <textarea
@@ -411,12 +416,12 @@ export default function EvolvePage() {
               placeholder="Escribí tu mensaje... (Enter para enviar, Shift+Enter para nueva línea)"
               rows={1}
               disabled={loading}
-              className="flex-1 bg-white/[0.04] border border-white/[0.08] focus:border-white/[0.20] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-700 outline-none resize-none leading-relaxed disabled:opacity-40 transition-colors"
+              className="flex-1 bg-surface border border-[var(--border-color)] focus:border-indigo-500/50 rounded-xl px-4 py-3 text-sm text-foreground placeholder-[var(--muted)] outline-none resize-none leading-relaxed disabled:opacity-40 transition-colors"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || loading}
-              className="flex-shrink-0 w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center disabled:opacity-25 hover:bg-gray-100 transition-all"
+              className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white flex items-center justify-center disabled:opacity-25 transition-all"
               aria-label="Enviar"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -425,7 +430,7 @@ export default function EvolvePage() {
               </svg>
             </button>
           </div>
-          <p className="text-[10px] text-gray-700 font-mono mt-2 text-center">
+          <p className="text-[10px] text-[var(--muted)] font-mono mt-2 text-center">
             Contexto de rutina y progresión incluido · cuando estés listo pedile que genere la rutina
           </p>
         </div>
@@ -440,6 +445,6 @@ export default function EvolvePage() {
           onSaved={newId => router.push(`/training/${newId}`)}
         />
       )}
-    </main>
+    </div>
   );
 }

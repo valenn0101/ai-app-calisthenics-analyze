@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import NavBar from '@/components/NavBar';
 import FrameStrip from '@/components/FrameStrip';
 import AnalysisResult from '@/components/AnalysisResult';
 import ChatPanel from '@/components/ChatPanel';
@@ -253,222 +253,214 @@ export default function Home() {
     c => c.timeRef != null && timeRefFrames.has(c.timeRef)
   ) ?? [];
 
-  const PANELS: { id: Panel; label: string }[] = [
+  const PANELS: { id: Panel; label: string; icon?: string }[] = [
     { id: 'analysis', label: 'Análisis' },
-    { id: 'chat', label: 'Coach' },
+    { id: 'chat', label: 'Coach IA', icon: '✦' },
     { id: 'share', label: 'Compartir' },
   ];
 
   return (
-    <main className="min-h-screen bg-[#0C0C10] text-white">
+    <div className="min-h-screen bg-background">
       <video ref={videoRef} className="hidden" muted playsInline />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* ── Header ── */}
-      <header className="border-b border-white/[0.07]">
-        <div className="max-w-4xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div>
-            <div className="text-base font-light tracking-widest text-white">
-              FORM<span className="text-gray-400">CHECK</span>
-            </div>
-            {displayName && (
-              <div className="text-[10px] text-gray-600 font-mono mt-0.5">{displayName}</div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/training"
-              className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
-            >
-              Rutinas
-            </Link>
-            <Link
-              href="/chats"
-              className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
-            >
-              Chats
-            </Link>
-            <Link
-              href="/history"
-              className="text-[11px] font-mono text-gray-500 hover:text-white border border-white/[0.07] hover:border-white/[0.18] px-3 py-1.5 rounded-lg transition-all"
-            >
-              Historial
-            </Link>
+      <NavBar />
+
+      <div className="max-w-4xl mx-auto px-5 py-8 space-y-5">
+
+        {/* ── Inspector header ── */}
+        {displayName && (
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">
+              Analizando como {displayName}
+            </p>
             <button
               onClick={handleLogout}
-              className="text-[11px] font-mono text-gray-600 hover:text-white px-3 py-1.5 rounded-lg transition-all"
+              className="text-[10px] font-mono text-[var(--muted)] hover:text-foreground transition-colors"
             >
               Salir
             </button>
           </div>
-        </div>
-      </header>
+        )}
 
-      <div className="max-w-4xl mx-auto px-5 py-8 space-y-6">
+        {/* ── Inspector layout: left = input/viewer, right = results ── */}
+        <div className={`grid gap-6 ${analysis && appState === 'done' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
 
-        {/* ── Exercise + Upload ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* ── Left panel: inputs + video ── */}
+          <div className="space-y-4">
 
-          {/* Exercise input */}
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-mono text-gray-600 uppercase tracking-widest">
-              Ejercicio
-            </label>
-            <input
-              type="text"
-              value={exercise}
-              onChange={e => setExercise(e.target.value)}
-              placeholder="Muscle Up, Pull Up, Planche..."
-              className="w-full bg-white/[0.03] border border-white/[0.08] focus:border-white/[0.22] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-700 outline-none transition-colors"
-            />
+            {/* Exercise + Upload */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+              {/* Exercise input */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">
+                  Ejercicio
+                </label>
+                <input
+                  type="text"
+                  value={exercise}
+                  onChange={e => setExercise(e.target.value)}
+                  placeholder="Muscle Up, Pull Up, Planche..."
+                  className="w-full bg-surface border border-[var(--border-color)] focus:border-zinc-400 rounded-xl px-4 py-3 text-sm text-foreground placeholder-[var(--muted)] outline-none transition-colors"
+                />
+              </div>
+
+              {/* Video upload */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">
+                  Video
+                </label>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border rounded-xl py-3 px-4 cursor-pointer transition-all flex items-center gap-3 ${
+                    frames.length > 0
+                      ? 'border-[var(--border-color)] bg-surface'
+                      : 'border-[var(--border-color)] border-dashed hover:border-zinc-500 bg-surface'
+                  }`}
+                >
+                  <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm ${frames.length > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-surface-2 text-[var(--muted)]'}`}>
+                    {appState === 'extracting' ? (
+                      <span className="animate-spin">◌</span>
+                    ) : frames.length > 0 ? '✓' : '▶'}
+                  </div>
+                  <div className="min-w-0">
+                    {appState === 'extracting' ? (
+                      <p className="text-xs text-[var(--muted)] animate-pulse">Extrayendo frames...</p>
+                    ) : frames.length > 0 ? (
+                      <>
+                        <p className="text-xs text-foreground">{frames.length} frames · {videoDuration.toFixed(1)}s</p>
+                        <p className="text-[10px] text-[var(--muted)]">Click para cambiar</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-[var(--muted)]">Subir video</p>
+                        <p className="text-[10px] text-[var(--muted)]">mp4 · mov · webm</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Video viewer */}
+            {videoSrc && frames.length > 0 && (
+              <div className="rounded-2xl border border-[var(--border-color)] bg-zinc-950 overflow-hidden">
+                <div className="px-3 py-2 border-b border-[var(--border-color)] flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+                  <span className="text-[10px] font-mono text-[var(--muted)] ml-2">visor</span>
+                </div>
+                <video
+                  src={videoSrc}
+                  controls
+                  className="w-full max-h-52 object-contain"
+                />
+              </div>
+            )}
+
+            {/* Frame strip */}
+            {frames.length > 0 && (
+              <FrameStrip
+                frames={frames}
+                selectedFrames={selectedFrames}
+                highlightedFrames={highlightedFrames}
+                onToggle={toggleFrame}
+              />
+            )}
+
+            {/* Analyze button */}
+            {frames.length > 0 && (
+              <button
+                onClick={handleAnalyze}
+                disabled={isLoading || !exercise.trim()}
+                className={`w-full py-3 rounded-xl text-sm font-medium transition-all ${
+                  isLoading || !exercise.trim()
+                    ? 'bg-surface-2 text-[var(--muted)] cursor-not-allowed'
+                    : 'bg-emerald-500 hover:bg-emerald-400 text-white active:scale-[0.99]'
+                }`}
+              >
+                {appState === 'analyzing' ? (
+                  <span className="animate-pulse text-xs font-mono tracking-wider">
+                    Analizando con Gemini...
+                  </span>
+                ) : (
+                  'Analizar técnica'
+                )}
+              </button>
+            )}
+
+            {/* Error */}
+            {appState === 'error' && error && (
+              <div className="border border-rose-500/20 bg-rose-500/[0.04] rounded-xl px-4 py-3">
+                <p className="text-xs text-rose-400 font-mono">{error}</p>
+              </div>
+            )}
           </div>
 
-          {/* Video upload */}
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-mono text-gray-600 uppercase tracking-widest">
-              Video
-            </label>
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className={`border rounded-xl py-3 px-4 cursor-pointer transition-all flex items-center gap-3 ${
-                frames.length > 0
-                  ? 'border-white/[0.14] bg-white/[0.03]'
-                  : 'border-white/[0.07] border-dashed hover:border-white/[0.14]'
-              }`}
-            >
-              <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
-              <div className="w-8 h-8 rounded-lg bg-white/[0.05] flex items-center justify-center flex-shrink-0 text-gray-500 text-sm">
-                {appState === 'extracting' ? (
-                  <span className="animate-spin">◌</span>
-                ) : frames.length > 0 ? '✓' : '▶'}
+          {/* ── Right panel: results ── */}
+          {analysis && appState === 'done' && (
+            <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden bg-surface">
+
+              {/* Tabs (pill style) */}
+              <div className="p-3 border-b border-[var(--border-color)]">
+                <div className="flex bg-surface-2 rounded-xl p-1 gap-1">
+                  {PANELS.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setActivePanel(p.id)}
+                      className={`flex-1 py-2 text-[11px] font-mono rounded-lg transition-all ${
+                        activePanel === p.id
+                          ? 'bg-surface text-foreground shadow-sm'
+                          : 'text-[var(--muted)] hover:text-foreground'
+                      } ${p.id === 'chat' ? 'flex items-center justify-center gap-1' : ''}`}
+                    >
+                      {p.icon && <span className="text-indigo-400">{p.icon}</span>}
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="min-w-0">
-                {appState === 'extracting' ? (
-                  <div className="text-xs text-gray-400 animate-pulse">Extrayendo frames...</div>
-                ) : frames.length > 0 ? (
-                  <>
-                    <div className="text-xs text-white">{frames.length} frames · {videoDuration.toFixed(1)}s</div>
-                    <div className="text-[10px] text-gray-600">Click para cambiar</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-xs text-gray-400">Subir video</div>
-                    <div className="text-[10px] text-gray-600">mp4 · mov · webm</div>
-                  </>
+
+              <div className="p-5">
+                {activePanel === 'analysis' && (
+                  <AnalysisResult
+                    data={analysis}
+                    exercise={exercise}
+                    timeRefFrames={timeRefFrames}
+                    verificationResult={verificationResult}
+                    improvement={sessionMeta?.improvement}
+                    previousScore={sessionMeta?.previousScore}
+                    onVerify={handleVerify}
+                    verifyState={verifyState}
+                    verifyError={verifyError}
+                    correctionsWithFrameCount={correctionsWithFrame.length}
+                  />
+                )}
+
+                {activePanel === 'chat' && (
+                  <ChatPanel
+                    exercise={exercise}
+                    analysis={analysis}
+                    verification={verificationResult}
+                  />
+                )}
+
+                {activePanel === 'share' && (
+                  <SharePanel
+                    shareText={analysis.shareText}
+                    frames={frames}
+                    selectedFrames={selectedFrames}
+                  />
                 )}
               </div>
             </div>
-          </div>
+          )}
+
         </div>
-
-        {/* ── Frame strip ── */}
-        {frames.length > 0 && (
-          <FrameStrip
-            frames={frames}
-            selectedFrames={selectedFrames}
-            highlightedFrames={highlightedFrames}
-            onToggle={toggleFrame}
-          />
-        )}
-
-        {/* ── Analyze button ── */}
-        {frames.length > 0 && (
-          <button
-            onClick={handleAnalyze}
-            disabled={isLoading || !exercise.trim()}
-            className={`w-full py-3 rounded-xl text-sm font-medium transition-all ${
-              isLoading || !exercise.trim()
-                ? 'bg-white/[0.05] text-gray-600 cursor-not-allowed'
-                : 'bg-white text-black hover:bg-gray-100 active:scale-[0.99]'
-            }`}
-          >
-            {appState === 'analyzing' ? (
-              <span className="text-gray-500 animate-pulse text-xs font-mono tracking-wider">
-                Analizando con Gemini...
-              </span>
-            ) : (
-              'Analizar técnica'
-            )}
-          </button>
-        )}
-
-        {/* ── Error ── */}
-        {appState === 'error' && error && (
-          <div className="border border-red-500/20 bg-red-500/[0.04] rounded-xl px-4 py-3">
-            <p className="text-xs text-red-400 font-mono">{error}</p>
-          </div>
-        )}
-
-        {/* ── Results panel ── */}
-        {analysis && appState === 'done' && (
-          <div className="border border-white/[0.07] rounded-2xl overflow-hidden bg-[#111116]">
-
-            {/* Tabs */}
-            <div className="flex border-b border-white/[0.07]">
-              {PANELS.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setActivePanel(p.id)}
-                  className={`flex-1 py-3.5 text-[11px] font-mono uppercase tracking-wider transition-all ${
-                    activePanel === p.id
-                      ? 'text-white border-b border-white/50'
-                      : 'text-gray-600 hover:text-gray-300'
-                  }`}
-                >
-                  {p.label}
-                  {p.id === 'chat' && (
-                    <span className="ml-1.5 text-[8px] text-gray-600 align-middle">IA</span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-5 sm:p-6">
-              {activePanel === 'analysis' && (
-                <AnalysisResult
-                  data={analysis}
-                  exercise={exercise}
-                  timeRefFrames={timeRefFrames}
-                  verificationResult={verificationResult}
-                  improvement={sessionMeta?.improvement}
-                  previousScore={sessionMeta?.previousScore}
-                  onVerify={handleVerify}
-                  verifyState={verifyState}
-                  verifyError={verifyError}
-                  correctionsWithFrameCount={correctionsWithFrame.length}
-                />
-              )}
-
-              {activePanel === 'chat' && (
-                <ChatPanel
-                  exercise={exercise}
-                  analysis={analysis}
-                  verification={verificationResult}
-                />
-              )}
-
-              {activePanel === 'share' && (
-                <SharePanel
-                  shareText={analysis.shareText}
-                  frames={frames}
-                  selectedFrames={selectedFrames}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Video player ── */}
-        {videoSrc && frames.length > 0 && (
-          <div className="flex justify-center pt-2">
-            <video
-              src={videoSrc}
-              controls
-              className="rounded-xl border border-white/[0.07] max-h-44 max-w-full"
-            />
-          </div>
-        )}
       </div>
-    </main>
+    </div>
   );
 }

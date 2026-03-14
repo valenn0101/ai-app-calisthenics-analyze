@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import NavBar from '@/components/NavBar';
 import type { Routine, RoutineDay } from '@/lib/training-types';
 
 interface DashboardData {
@@ -18,6 +19,12 @@ function greeting(): string {
   if (h < 12) return 'Buenos días';
   if (h < 19) return 'Buenas tardes';
   return 'Buenas noches';
+}
+
+function weekProgress(startDate: string, weekCount: number) {
+  const start = new Date(startDate);
+  const diff = Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24 * 7));
+  return Math.min(Math.max(diff + 1, 1), weekCount);
 }
 
 export default function DashboardPage() {
@@ -37,9 +44,12 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0C0C10] flex items-center justify-center">
-        <span className="text-gray-700 font-mono text-xs animate-pulse">Cargando...</span>
-      </main>
+      <div className="min-h-screen bg-background">
+        <NavBar />
+        <div className="flex items-center justify-center h-[60vh]">
+          <span className="text-[var(--muted)] font-mono text-xs animate-pulse">Cargando...</span>
+        </div>
+      </div>
     );
   }
 
@@ -48,96 +58,111 @@ export default function DashboardPage() {
   const { displayName, routine, currentWeek, nextDay, completedDays } = data;
   const totalWeeks = routine ? routine.weekCount + (routine.hasDeload ? 1 : 0) : 0;
   const isDeload = routine?.hasDeload && currentWeek === totalWeeks;
+  const currentW = routine && currentWeek ? weekProgress(routine.startDate, routine.weekCount) : 0;
+  const progressPct = routine ? Math.round(currentW / routine.weekCount * 100) : 0;
 
   return (
-    <main className="min-h-screen bg-[#0C0C10] flex flex-col items-center justify-center px-5 py-12">
-      <div className="w-full max-w-sm space-y-8">
+    <div className="min-h-screen bg-background">
+      <NavBar />
 
-        {/* Greeting */}
+      <main className="max-w-2xl mx-auto px-5 py-8 space-y-6">
+
+        {/* ── Saludo ──────────────────────────────────────────── */}
         <div className="space-y-1">
-          <p className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">
+          <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">
             {greeting()}
           </p>
-          <h1 className="text-2xl font-light text-white">
-            Hola, <span className="text-white font-normal">{displayName}</span>
+          <h1 className="text-3xl font-light text-foreground">
+            Hola, <span className="font-medium">{displayName}</span>
           </h1>
-          <p className="text-sm text-gray-500">¿Cómo estás hoy?</p>
         </div>
 
-        {/* Training context */}
+        {/* ── Próximo entrenamiento (tarjeta prominente) ───────── */}
         {routine && currentWeek ? (
-          <div className="space-y-3">
-
-            {/* Week card */}
-            <div className={`rounded-2xl border px-5 py-4 space-y-0.5 ${
-              isDeload
-                ? 'border-sky-500/20 bg-sky-500/[0.04]'
-                : 'border-white/[0.07] bg-white/[0.02]'
-            }`}>
-              <p className="text-[10px] font-mono uppercase tracking-widest text-gray-600">
-                {routine.name}
-              </p>
-              <p className={`text-lg font-light ${isDeload ? 'text-sky-300' : 'text-white'}`}>
-                {isDeload ? 'Semana de descarga' : `Semana ${currentWeek} de ${routine.weekCount}`}
-              </p>
-              <p className="text-[11px] font-mono text-gray-600">
-                {completedDays} de {routine.days.length} días completados esta semana
-              </p>
-            </div>
-
-            {/* Next day */}
+          <>
             {nextDay ? (
-              <Link
-                href={`/training/${routine.id}?week=${currentWeek}`}
-                className="block rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] px-5 py-4 hover:bg-emerald-500/[0.07] transition-colors group"
-              >
-                <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-600">
-                  Próximo entrenamiento
-                </p>
-                <p className="text-base text-white mt-0.5 group-hover:text-emerald-200 transition-colors">
-                  {nextDay.dayName}
-                  {nextDay.title ? <span className="text-gray-500"> · {nextDay.title}</span> : null}
-                </p>
-                <p className="text-[10px] font-mono text-gray-700 mt-1">
-                  {nextDay.blocks.length} bloque{nextDay.blocks.length !== 1 ? 's' : ''} ·{' '}
-                  {nextDay.blocks.reduce((n, b) => n + b.exercises.length, 0)} ejercicios
-                </p>
-              </Link>
+              <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/[0.05] p-6 space-y-4">
+                <div>
+                  <p className="text-[10px] font-mono text-emerald-500 uppercase tracking-widest">
+                    Próximo entrenamiento
+                  </p>
+                  <h2 className="text-xl font-medium text-foreground mt-1">
+                    {nextDay.dayName}
+                    {nextDay.title && <span className="text-[var(--muted)] font-normal"> · {nextDay.title}</span>}
+                  </h2>
+                  <p className="text-xs font-mono text-[var(--muted)] mt-1">
+                    {nextDay.blocks.length} bloque{nextDay.blocks.length !== 1 ? 's' : ''} ·{' '}
+                    {nextDay.blocks.reduce((n, b) => n + b.exercises.length, 0)} ejercicios
+                  </p>
+                </div>
+                <Link
+                  href={`/training/${routine.id}?week=${currentWeek}`}
+                  className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition-colors"
+                >
+                  Iniciar sesión →
+                </Link>
+              </div>
             ) : (
-              <div className="rounded-2xl border border-white/[0.05] bg-white/[0.01] px-5 py-4">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-gray-600">
-                  Semana completada
-                </p>
-                <p className="text-sm text-gray-400 mt-0.5">Todos los días registrados. Buen trabajo.</p>
+              <div className="rounded-2xl border border-[var(--border-color)] bg-surface p-6">
+                <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Semana completada</p>
+                <p className="text-sm text-[var(--muted)] mt-1">Todos los días registrados. Buen trabajo.</p>
               </div>
             )}
 
-          </div>
+            {/* Progreso del mesociclo */}
+            <div className="rounded-2xl border border-[var(--border-color)] bg-surface p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">{routine.name}</p>
+                  <p className={`text-base font-medium mt-0.5 ${isDeload ? 'text-sky-400' : 'text-foreground'}`}>
+                    {isDeload ? 'Semana de descarga' : `Semana ${currentW} de ${routine.weekCount}`}
+                  </p>
+                </div>
+                <span className="text-2xl font-mono font-light text-emerald-500">{progressPct}%</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(progressPct, 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] font-mono text-[var(--muted)]">
+                  {completedDays} de {routine.days.length} días completados esta semana
+                </p>
+              </div>
+            </div>
+          </>
         ) : (
-          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-5 py-4">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-gray-600 mb-1">
-              Sin rutina activa
-            </p>
-            <Link href="/training/new" className="text-sm text-white hover:text-gray-300 transition-colors">
-              Crear una rutina →
+          <div className="rounded-2xl border border-dashed border-[var(--border-color)] p-8 text-center space-y-3">
+            <p className="text-sm text-[var(--muted)]">Sin rutina activa</p>
+            <Link
+              href="/training/new"
+              className="inline-block bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium rounded-xl px-5 py-2.5 transition-colors"
+            >
+              Crear primera rutina
             </Link>
           </div>
         )}
 
-        {/* Nav links */}
-        <div className="grid grid-cols-3 gap-2 pt-2">
-          <Link href="/" className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 text-center hover:bg-white/[0.05] transition-colors">
-            <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Análisis</p>
+        {/* ── Accesos rápidos ──────────────────────────────────── */}
+        <div className="grid grid-cols-3 gap-3">
+          <Link href="/" className="rounded-xl border border-[var(--border-color)] bg-surface hover:bg-surface-2 p-4 text-center transition-colors group">
+            <p className="text-lg mb-1">◎</p>
+            <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest group-hover:text-foreground transition-colors">Análisis</p>
           </Link>
-          <Link href="/training" className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 text-center hover:bg-white/[0.05] transition-colors">
-            <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Rutinas</p>
+          <Link href="/training" className="rounded-xl border border-[var(--border-color)] bg-surface hover:bg-surface-2 p-4 text-center transition-colors group">
+            <p className="text-lg mb-1">◫</p>
+            <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest group-hover:text-foreground transition-colors">Rutinas</p>
           </Link>
-          <Link href="/history" className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 text-center hover:bg-white/[0.05] transition-colors">
-            <p className="text-[9px] font-mono text-gray-600 uppercase tracking-widest">Historial</p>
+          <Link href="/history" className="rounded-xl border border-[var(--border-color)] bg-surface hover:bg-surface-2 p-4 text-center transition-colors group">
+            <p className="text-lg mb-1">▤</p>
+            <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest group-hover:text-foreground transition-colors">Historial</p>
           </Link>
         </div>
 
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
