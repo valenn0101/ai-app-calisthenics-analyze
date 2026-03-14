@@ -26,7 +26,7 @@ export default function GuidelinesPage() {
           <p className="text-[10px] font-mono text-[var(--muted)] uppercase tracking-widest">Sistema de Diseño</p>
           <h1 className="text-3xl font-light text-foreground">Guidelines</h1>
           <p className="text-sm text-[var(--muted)] leading-relaxed max-w-xl">
-            Documentación del sistema visual de FormCheck. Filosofía: <strong className="text-foreground">"Moderno Atlético"</strong> — minimalista, preciso, donde los datos son los protagonistas.
+            Documentación del sistema visual de FormCheck. Filosofía: <strong className="text-foreground">&ldquo;Moderno Atlético&rdquo;</strong> — minimalista, preciso, donde los datos son los protagonistas.
           </p>
         </div>
 
