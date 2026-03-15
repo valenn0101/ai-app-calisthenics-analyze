@@ -1,50 +1,139 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Calisthenics Analyzer
 
-## Getting Started
+A web application that uses multimodal AI to analyze calisthenics technique from video, providing biomechanical scoring, frame-level corrections, and an AI coaching chat — all in one interface.
 
-First, run the development server:
+## What It Does
+
+Upload a video of any calisthenics movement (muscle-up, pull-up, planche, etc.) and get:
+
+- **Technique score** (1–10) with rigorous biomechanical criteria
+- **Timestamped corrections** pinpointing exact moments where errors occur, with visual frame evidence
+- **Positive highlights** with the specific muscles and joints performing well
+- **Coaching cues** — short, actionable phrases to drill during practice
+- **Second-pass verification** — after the main analysis, specific error frames are re-evaluated to confirm corrections
+- **AI Coach chat** — conversational follow-up powered by Claude
+- **Session history** — track progress across sessions, compare scores over time
+- **Training planner** — build multi-week routines with weekly logging
+- **Goal tracker** — set and monitor skill, strength, and endurance goals
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| AI — Video Analysis | Google Gemini (multimodal) |
+| AI — Coach Chat | Anthropic Claude (`claude-sonnet-4-6`) |
+| AI — Alternative | Kimi K2.5 (optional) |
+| Database | Supabase (PostgreSQL) |
+| Auth | Custom cookie-based session |
+
+## How the Analysis Pipeline Works
+
+1. **Frame extraction** — the browser extracts 8–16 frames from the uploaded video at evenly distributed timestamps
+2. **Video upload to Gemini** — the full video is uploaded to Gemini Files API and processed as a multimodal input
+3. **Structured analysis** — Gemini returns a JSON response with score, corrections, positives, cues, and a share summary; each item references an exact timestamp in the video
+4. **Frame-level verification** — frames at the reported error timestamps are recaptured and sent to a second AI pass to confirm the corrections
+5. **AI summary** — a concise 2–3 sentence summary is generated for historical comparison across sessions
+6. **Session persistence** — everything is saved to Supabase: score, corrections, positives, AI summary, and raw frame data
+
+## Local Setup
+
+### Prerequisites
+
+- Node.js 18+
+- A Supabase project (free tier works)
+- Google AI Studio API key (for Gemini)
+- Anthropic API key (for Claude coach chat)
+
+### 1. Install dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure environment variables
 
-## Environment Variables
-
-Create a `.env` file in the project root and configure the providers you want to use:
+Create a `.env.local` file in the project root:
 
 ```bash
-ANTHROPIC_API_KEY=...
-GOOGLE_API_KEY=...
+# AI providers
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=AIza...
 
-# Kimi K2.5
+# Optional: Kimi K2.5
 KIMI_API_KEY=...
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2.5
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhb...
 ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Initialize the database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the SQL schema in your Supabase project's SQL Editor:
 
-## Learn More
+```
+supabase/migrations/20260312000000_init_schema.sql
+```
 
-To learn more about Next.js, take a look at the following resources:
+This creates tables for: `users`, `sessions`, `chats`, `routines`, `week_logs`, and `goals`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Start the development server
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev
+```
 
-## Deploy on Vercel
+Open [http://localhost:3000](http://localhost:3000).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+app/
+  api/
+    analyze/        ← video analysis pipeline (Gemini)
+    verify/         ← second-pass frame verification
+    chat/           ← AI coach chat (Claude)
+    training/       ← routine CRUD + weekly logging
+    goals/          ← goals CRUD
+    history/        ← session history
+    auth/           ← login / logout / me
+  dashboard/        ← progress overview
+  history/          ← session history list
+  training/         ← routine planner + weekly log
+  guidelines/       ← technique reference
+components/
+  AnalysisResult    ← score card, corrections, cues
+  ChatPanel         ← AI coach conversation
+  FrameStrip        ← extracted frame browser
+  SharePanel        ← shareable summary generator
+  ProgressChart     ← score evolution chart
+lib/
+  storage.ts        ← session persistence (Supabase)
+  training.ts       ← routine logic
+  chats.ts          ← chat history persistence
+  goals.ts          ← goals persistence
+  users.ts          ← auth helpers
+  models.ts         ← AI model configuration
+```
+
+## Key Design Decisions
+
+- **Frame extraction is done in the browser** via the Canvas API — no server-side video processing overhead
+- **Gemini receives the full video**, not just frames, enabling temporal reasoning about movement phases
+- **Corrections include `timeRef`** (exact second) and `frameDescription` (what the AI sees) — this forces the model to ground its feedback in specific visual evidence rather than generic advice
+- **Supabase with service role key** is used server-side only; the key is never exposed to the client
+- **No Supabase RLS** — authentication is handled via a custom session cookie; RLS can be added if migrating to Supabase Auth
+
+## Scripts
+
+```bash
+npm run dev      # development server
+npm run build    # production build
+npm run start    # production server
+npm run lint     # ESLint
+```
