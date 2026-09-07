@@ -2,6 +2,10 @@
 
 A web application that uses multimodal AI to analyze calisthenics technique from video, providing biomechanical scoring, frame-level corrections, and an AI coaching chat — all in one interface.
 
+![Calisthenics analysis with an example score and timestamped feedback](docs/screenshots/preview.png)
+
+*Actual interface populated with fictional analysis data for this preview. No personal training video or real assessment is shown.*
+
 ## What It Does
 
 Upload a video of any calisthenics movement (muscle-up, pull-up, planche, etc.) and get:
